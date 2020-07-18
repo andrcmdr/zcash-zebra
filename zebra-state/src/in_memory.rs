@@ -12,22 +12,22 @@ use std::{
     task::{Context, Poll},
 };
 use tower::{buffer::Buffer, Service};
-use zebra_chain::block::BlockHeaderHash;
+use zebra_chain::block::{Block, BlockHeaderHash, BlockHeader};
 
 mod block_index;
 
 #[derive(Default)]
-struct InMemoryState {
-    index: block_index::BlockIndex,
+struct InMemoryState<T> {
+    index: block_index::BlockIndex<T>,
 }
 
-impl InMemoryState {
+impl InMemoryState<Block> {
     fn contains(&mut self, _hash: BlockHeaderHash) -> Result<Option<u32>, Error> {
         todo!()
     }
 }
 
-impl Service<Request> for InMemoryState {
+impl Service<Request> for InMemoryState<Block> {
     type Response = Response;
     type Error = Error;
     type Future =
@@ -74,6 +74,31 @@ impl Service<Request> for InMemoryState {
                     Ok(Response::Depth(depth))
                 }
                 .boxed()
+            }
+        }
+    }
+}
+
+impl Service<Request> for InMemoryState<BlockHeader> {
+    type Response = Response;
+    type Error = Error;
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Request) -> Self::Future {
+        match req {
+            Request::GetBlockHeader { hash } => {
+                let result = self
+                    .index
+                    .get_header(hash)
+                    .map(|block_header| Response::BlockHeader { block_header })
+                    .ok_or_else(|| "block header could not be found".into());
+
+                async move { result }.boxed()
             }
         }
     }

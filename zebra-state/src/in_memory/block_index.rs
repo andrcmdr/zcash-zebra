@@ -4,16 +4,17 @@ use std::{
     sync::Arc,
 };
 use zebra_chain::{
-    block::{Block, BlockHeaderHash},
+    block::{Block, BlockHeaderHash, BlockHeader},
     types::BlockHeight,
 };
+
 #[derive(Default)]
-pub(super) struct BlockIndex {
-    by_hash: HashMap<BlockHeaderHash, Arc<Block>>,
-    by_height: BTreeMap<BlockHeight, Arc<Block>>,
+pub(super) struct BlockIndex<T> {
+    by_hash: HashMap<BlockHeaderHash, Arc<T>>,
+    by_height: BTreeMap<BlockHeight, Arc<T>>,
 }
 
-impl BlockIndex {
+impl BlockIndex<Block> {
     pub(super) fn insert(
         &mut self,
         block: impl Into<Arc<Block>>,
@@ -46,6 +47,16 @@ impl BlockIndex {
             .next_back()
             .map(|(_key, value)| value)
             .map(|block| block.as_ref().into())
+    }
+}
+
+impl BlockIndex<BlockHeader> {
+    pub(super) fn get_header(&mut self, query: impl Into<BlockQuery>) -> Option<Arc<BlockHeader>> {
+        match query.into() {
+            BlockQuery::ByHash(hash) => self.by_hash.get(&hash),
+            BlockQuery::ByHeight(height) => self.by_height.get(&height),
+        }
+        .cloned()
     }
 }
 

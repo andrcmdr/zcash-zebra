@@ -12,7 +12,7 @@ use std::{
 use tower::{buffer::Buffer, Service};
 use zebra_chain::serialization::{ZcashDeserialize, ZcashSerialize};
 use zebra_chain::{
-    block::{Block, BlockHeaderHash},
+    block::{Block, BlockHeaderHash, BlockHeader},
     types::BlockHeight,
 };
 
@@ -75,6 +75,30 @@ impl SledState {
         }
     }
 
+    pub(super) fn get_header(&self, query: impl Into<BlockQuery>) -> Result<Option<Arc<BlockHeader>>, Error> {
+        let query = query.into();
+        let value = match query {
+            BlockQuery::ByHash(hash) => {
+                let by_hash = self.storage.open_tree(b"by_hash")?;
+                let key = &hash.0;
+                by_hash.get(key)?
+            }
+            BlockQuery::ByHeight(height) => {
+                let by_height = self.storage.open_tree(b"by_height")?;
+                let key = height.0.to_be_bytes();
+                by_height.get(key)?
+            }
+        };
+
+        if let Some(bytes) = value {
+            let bytes = bytes.as_ref();
+            let block_header = ZcashDeserialize::zcash_deserialize(bytes)?;
+            Ok(Some(block_header))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub(super) fn get_tip(&self) -> Result<Option<Arc<Block>>, Error> {
         let tree = self.storage.open_tree(b"by_height")?;
         let last_entry = tree.iter().values().next_back();
@@ -125,6 +149,16 @@ impl Service<Request> for SledState {
                         .get(hash)?
                         .map(|block| Response::Block { block })
                         .ok_or_else(|| "block could not be found".into())
+                }
+                .boxed()
+            }
+            Request::GetBlockHeader { hash } => {
+                let storage = self.clone();
+                async move {
+                    storage
+                        .get_header(hash)?
+                        .map(|block_header| Response::BlockHeader { block_header })
+                        .ok_or_else(|| "block header could not be found".into())
                 }
                 .boxed()
             }

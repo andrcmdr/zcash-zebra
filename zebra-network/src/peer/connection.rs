@@ -501,6 +501,11 @@ where
                     }
                 }
             }
+            Response::BlockHeaders(block_headers) => {
+                if let Err(e) = self.peer_tx.send(Message::Headers(block_headers)).await {
+                    self.fail_with(e.into());
+                }
+            }
             Response::BlockHeaderHashes(hashes) => {
                 if let Err(e) = self
                     .peer_tx

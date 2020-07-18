@@ -15,7 +15,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
-use zebra_chain::block::{Block, BlockHeaderHash};
+use zebra_chain::block::{Block, BlockHeaderHash, BlockHeader};
 
 pub mod in_memory;
 pub mod on_disk;
@@ -56,6 +56,12 @@ pub enum Request {
         /// The hash used to identify the block
         hash: BlockHeaderHash,
     },
+
+    GetBlockHeader {
+        /// The hash used to identify the block header
+        hash: BlockHeaderHash,
+    },
+
     /// Get the block that is the tip of the current chain
     GetTip,
     /// Ask the state if the given hash is part of the current best chain
@@ -79,6 +85,11 @@ pub enum Response {
         /// The block that was requested
         block: Arc<Block>,
     },
+
+    BlockHeader {
+        block_header: Arc<BlockHeader>,
+    },
+
     /// The response to a `GetTip` request
     Tip {
         /// The hash of the block at the tip of the current chain

@@ -178,7 +178,8 @@ pub enum Message {
     // transaction count (a var_int, so there can be more than 81
     // bytes per header) as opposed to the block headers that are
     // hashed by miners.
-    Headers(Vec<BlockHeader>),
+    Headers(Vec<Arc<BlockHeader>>),
+    // vector element wrapped into std::sync::Arc to comply to the requests of headers in other various places in Zebra codebase
 
     /// A `getheaders` message.
     ///
