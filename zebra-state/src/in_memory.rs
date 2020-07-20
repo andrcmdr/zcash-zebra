@@ -6,13 +6,18 @@
 use super::{Request, Response};
 use futures::prelude::*;
 use std::{
+    collections::{BTreeMap, HashMap},
     error,
+    sync::Arc,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
 use tower::{buffer::Buffer, Service};
-use zebra_chain::block::{Block, BlockHeaderHash, BlockHeader};
+use zebra_chain::{
+    block::{Block, BlockHeaderHash, BlockHeader},
+    types::BlockHeight,
+};
 
 mod block_index;
 
@@ -53,6 +58,15 @@ impl Service<Request> for InMemoryState<Block> {
                     .get(hash)
                     .map(|block| Response::Block { block })
                     .ok_or_else(|| "block could not be found".into());
+
+                async move { result }.boxed()
+            }
+            Request::GetBlockHeader { hash } => {
+                let result = self
+                    .index
+                    .get_header(hash)
+                    .map(|block_header| Response::BlockHeader { block_header })
+                    .ok_or_else(|| "block header could not be found".into());
 
                 async move { result }.boxed()
             }
@@ -106,15 +120,20 @@ impl Service<Request> for InMemoryState<BlockHeader> {
 
 /// Return's a type that implement's the `zebra_state::Service` entirely in
 /// memory using `HashMaps`
-pub fn init() -> impl Service<
+pub fn init<T>() -> impl Service<
     Request,
     Response = Response,
     Error = Error,
     Future = impl Future<Output = Result<Response, Error>>,
 > + Send
-       + Clone
-       + 'static {
-    Buffer::new(InMemoryState::default(), 1)
+  + Clone
+  + 'static {
+    Buffer::new(InMemoryState::<Block>{
+        index: block_index::BlockIndex::<Block>{
+            by_hash: HashMap::<BlockHeaderHash, Arc<Block>>::default(),
+            by_height: BTreeMap::<BlockHeight, Arc<Block>>::default(),
+        },
+    }, 1)
 }
 
 type Error = Box<dyn error::Error + Send + Sync + 'static>;
