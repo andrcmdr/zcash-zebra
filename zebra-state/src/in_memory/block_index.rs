@@ -14,7 +14,7 @@ pub(super) struct BlockIndex<T> {
     by_height: BTreeMap<BlockHeight, Arc<T>>,
 }
 
-impl BlockIndex<Block> {
+impl<T> BlockIndex<T> {
     pub(super) fn insert(
         &mut self,
         block: impl Into<Arc<Block>>,

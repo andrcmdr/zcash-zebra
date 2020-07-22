@@ -51,17 +51,21 @@ pub enum Request {
         /// The block to be added to the state
         block: Arc<Block>,
     },
+    /// Add a block header to the zebra-state
+    AddBlockHeader {
+        /// The block header to be added to the state
+        block_header: Arc<BlockHeader>,
+    },
     /// Get a block from the zebra-state
     GetBlock {
         /// The hash used to identify the block
         hash: BlockHeaderHash,
     },
-
+    /// Get a block header from the zebra-state
     GetBlockHeader {
         /// The hash used to identify the block header
         hash: BlockHeaderHash,
     },
-
     /// Get the block that is the tip of the current chain
     GetTip,
     /// Ask the state if the given hash is part of the current best chain
