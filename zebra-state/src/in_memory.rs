@@ -3,6 +3,7 @@
 //! This service is provided as an independent implementation of the
 //! zebra-state service to use in verifying the correctness of `on_disk`'s
 //! `Service` implementation.
+// use crate::in_memory::block_index::Index;
 use super::{Request, Response};
 use futures::prelude::*;
 use std::{
@@ -15,7 +16,7 @@ use std::{
 };
 use tower::{buffer::Buffer, Service};
 use zebra_chain::{
-    block::{BlockHeaderHash},
+    block::BlockHeaderHash,
 //  block::{BlockHeaderHash, Block, BlockHeader},
     types::BlockHeight,
 };
