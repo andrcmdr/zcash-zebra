@@ -15,18 +15,20 @@ use zebra_chain::{
 
 #[derive(Default)]
 pub(super) struct BlockIndex<T> {
-    by_hash: HashMap<BlockHeaderHash, Arc<T>>,
-    by_height: BTreeMap<BlockHeight, Arc<T>>,
+    pub by_hash: HashMap<BlockHeaderHash, Arc<T>>,
+    pub by_height: BTreeMap<BlockHeight, Arc<T>>,
 }
 
+/*
 pub(super) trait Index<T> {
-    fn insert(&mut self, block: impl Into<Arc<T>>) -> Result<BlockHeaderHash, Box<dyn Error + Send + Sync + 'static>>;
+    fn insert(&mut self, block_item: impl Into<Arc<T>>) -> Result<BlockHeaderHash, Box<dyn Error + Send + Sync + 'static>>;
     fn get(&mut self, query: impl Into<BlockQuery>) -> Option<Arc<T>>;
     fn get_tip(&self) -> Option<BlockHeaderHash>;
 }
+*/
 
-impl Index<Block> for BlockIndex<Block> {
-    fn insert(
+impl BlockIndex<Block> {
+    pub fn insert(
         &mut self,
         block: impl Into<Arc<Block>>,
     ) -> Result<BlockHeaderHash, Box<dyn Error + Send + Sync + 'static>> {
@@ -44,7 +46,7 @@ impl Index<Block> for BlockIndex<Block> {
         }
     }
 
-    fn get(&mut self, query: impl Into<BlockQuery>) -> Option<Arc<Block>> {
+    pub fn get(&mut self, query: impl Into<BlockQuery>) -> Option<Arc<Block>> {
         match query.into() {
             BlockQuery::ByHash(hash) => self.by_hash.get(&hash),
             BlockQuery::ByHeight(height) => self.by_height.get(&height),
@@ -52,7 +54,7 @@ impl Index<Block> for BlockIndex<Block> {
         .cloned()
     }
 
-    fn get_tip(&self) -> Option<BlockHeaderHash> {
+    pub fn get_tip(&self) -> Option<BlockHeaderHash> {
         self.by_height
             .iter()
             .next_back()
@@ -61,8 +63,8 @@ impl Index<Block> for BlockIndex<Block> {
     }
 }
 
-impl Index<BlockHeader> for BlockIndex<BlockHeader> {
-    fn insert(
+impl BlockIndex<BlockHeader> {
+    pub fn insert(
         &mut self,
         block_header: impl Into<Arc<BlockHeader>>,
     ) -> Result<BlockHeaderHash, Box<dyn Error + Send + Sync + 'static>> {
@@ -71,8 +73,8 @@ impl Index<BlockHeader> for BlockIndex<BlockHeader> {
 //      let height = block_header.coinbase_height().unwrap(); // BlockIndex::<BlockHeader>{ by_height } is unusable
 
         match self.by_hash.entry(hash) {
-            HashMapEntry::Vacant(entry) => {
-             // let _ = entry.insert(block_header.clone()); // write to the same key/entry in the same HashMap (BlockIndex::<BlockHeader>{ by_hash }) - thus comment this string to prevent double write
+            HashMapEntry::Vacant(_entry) => {
+             // let _ = _entry.insert(block_header.clone()); // write to the same key/entry in the same HashMap (BlockIndex::<BlockHeader>{ by_hash }) - thus comment this string to prevent double write
                 let _ = self.by_hash.insert(hash, block_header);
                 Ok(hash)
             }
@@ -80,7 +82,7 @@ impl Index<BlockHeader> for BlockIndex<BlockHeader> {
         }
     }
 
-    fn get(&mut self, query: impl Into<BlockQuery>) -> Option<Arc<BlockHeader>> {
+    pub fn get(&mut self, query: impl Into<BlockQuery>) -> Option<Arc<BlockHeader>> {
         match query.into() {
             BlockQuery::ByHash(hash) => self.by_hash.get(&hash),
             BlockQuery::ByHeight(height) => self.by_height.get(&height),
@@ -88,7 +90,7 @@ impl Index<BlockHeader> for BlockIndex<BlockHeader> {
         .cloned()
     }
 
-    fn get_tip(&self) -> Option<BlockHeaderHash> {
+    pub fn get_tip(&self) -> Option<BlockHeaderHash> {
         self.by_height
             .iter()
             .next_back()

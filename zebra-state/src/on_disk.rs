@@ -1,5 +1,5 @@
 //! The primary implementation of the `zebra_state::Service` built upon sled
-use super::{Request, Response};
+use super::{RequestBlock, RequestBlockHeader, Response};
 use crate::Config;
 use futures::prelude::*;
 use std::sync::Arc;
@@ -20,6 +20,15 @@ use zebra_chain::{
 struct SledState {
     storage: sled::Db,
 }
+
+/*
+pub(super) trait State<T> {
+    fn new(config: &Config) -> Self;
+    fn insert(&mut self, block_item: impl Into<Arc<T>>) -> Result<BlockHeaderHash, Error>;
+    fn get(&self, query: impl Into<BlockQuery>) -> Result<Option<Arc<T>>, Error>;
+    fn get_tip(&self) -> Result<Option<Arc<T>>, Error>;
+}
+*/
 
 impl SledState {
     pub(crate) fn new(config: &Config) -> Self {
@@ -46,6 +55,27 @@ impl SledState {
 
         // TODO(jlusby): make this transactional
         by_height.insert(&height.0.to_be_bytes(), bytes.as_slice())?;
+        by_hash.insert(&hash.0, bytes)?;
+
+        Ok(hash)
+    }
+
+    pub(super) fn insert_header(
+        &mut self,
+        block_header: impl Into<Arc<BlockHeader>>,
+    ) -> Result<BlockHeaderHash, Error> {
+        let block_header = block_header.into();
+        let hash: BlockHeaderHash = block_header.as_ref().into();
+//      let height = block_header.coinbase_height().unwrap();
+
+//      let by_height = self.storage.open_tree(b"by_height")?;
+        let by_hash = self.storage.open_tree(b"by_hash")?;
+
+        let mut bytes = Vec::new();
+        block_header.zcash_serialize(&mut bytes)?;
+
+        // TODO(jlusby): make this transactional
+//      by_height.insert(&height.0.to_be_bytes(), bytes.as_slice())?;
         by_hash.insert(&hash.0, bytes)?;
 
         Ok(hash)
@@ -125,7 +155,7 @@ impl Default for SledState {
     }
 }
 
-impl Service<Request> for SledState {
+impl Service<RequestBlock> for SledState {
     type Response = Response;
     type Error = Error;
     type Future =
@@ -135,14 +165,14 @@ impl Service<Request> for SledState {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: Request) -> Self::Future {
+    fn call(&mut self, req: RequestBlock) -> Self::Future {
         match req {
-            Request::AddBlock { block } => {
+            RequestBlock::AddBlock { block } => {
                 let mut storage = self.clone();
 
                 async move { storage.insert(block).map(|hash| Response::Added { hash }) }.boxed()
             }
-            Request::GetBlock { hash } => {
+            RequestBlock::GetBlock { hash } => {
                 let storage = self.clone();
                 async move {
                     storage
@@ -152,17 +182,7 @@ impl Service<Request> for SledState {
                 }
                 .boxed()
             }
-            Request::GetBlockHeader { hash } => {
-                let storage = self.clone();
-                async move {
-                    storage
-                        .get_header(hash)?
-                        .map(|block_header| Response::BlockHeader { block_header })
-                        .ok_or_else(|| "block header could not be found".into())
-                }
-                .boxed()
-            }
-            Request::GetTip => {
+            RequestBlock::GetTip => {
                 let storage = self.clone();
                 async move {
                     storage
@@ -173,7 +193,7 @@ impl Service<Request> for SledState {
                 }
                 .boxed()
             }
-            Request::GetDepth { hash } => {
+            RequestBlock::GetDepth { hash } => {
                 let storage = self.clone();
 
                 async move {
@@ -190,6 +210,70 @@ impl Service<Request> for SledState {
 
                     let depth =
                         tip.coinbase_height().unwrap().0 - block.coinbase_height().unwrap().0;
+
+                    Ok(Response::Depth(Some(depth)))
+                }
+                .boxed()
+            }
+        }
+    }
+}
+
+impl Service<RequestBlockHeader> for SledState {
+    type Response = Response;
+    type Error = Error;
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: RequestBlockHeader) -> Self::Future {
+        match req {
+            RequestBlockHeader::AddBlockHeader { block_header } => {
+                let mut storage = self.clone();
+
+                async move { storage.insert_header(block_header).map(|hash| Response::Added { hash }) }.boxed()
+            }
+            RequestBlockHeader::GetBlockHeader { hash } => {
+                let storage = self.clone();
+                async move {
+                    storage
+                        .get_header(hash)?
+                        .map(|block_header| Response::BlockHeader { block_header })
+                        .ok_or_else(|| "block header could not be found".into())
+                }
+                .boxed()
+            }
+            RequestBlockHeader::GetTip => {
+                let storage = self.clone();
+                async move {
+                    storage
+                        .get_tip()?
+                        .map(|block_header| block_header.as_ref().into())
+                        .map(|hash| Response::Tip { hash })
+                        .ok_or_else(|| "zebra-state contains no block headers".into())
+                }
+                .boxed()
+            }
+            RequestBlockHeader::GetDepth { hash } => {
+                let storage = self.clone();
+
+                async move {
+                    if !storage.contains(&hash)? {
+                        return Ok(Response::Depth(None));
+                    }
+
+                    let block_header = storage
+                        .get(hash)?
+                        .expect("block header must be present if contains returned true");
+                    let tip = storage
+                        .get_tip()?
+                        .expect("storage must have a tip if it contains the previous block header");
+
+                    let depth =
+                        tip.coinbase_height().unwrap().0 - block_header.coinbase_height().unwrap().0;
 
                     Ok(Response::Depth(Some(depth)))
                 }
@@ -237,7 +321,7 @@ impl From<BlockHeight> for BlockQuery {
 pub fn init(
     config: Config,
 ) -> impl Service<
-    Request,
+    RequestBlockHeader,
     Response = Response,
     Error = Error,
     Future = impl Future<Output = Result<Response, Error>>,

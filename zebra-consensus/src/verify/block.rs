@@ -82,7 +82,7 @@ type Error = Box<dyn error::Error + Send + Sync + 'static>;
 /// After verification, blocks are added to the underlying state service.
 impl<S> Service<Arc<Block>> for BlockVerifier<S>
 where
-    S: Service<zebra_state::Request, Response = zebra_state::Response, Error = Error>
+    S: Service<zebra_state::RequestBlock, Response = zebra_state::Response, Error = Error>
         + Send
         + Clone
         + 'static,
@@ -121,7 +121,7 @@ where
             let add_block = state_service
                 .ready_and()
                 .await?
-                .call(zebra_state::Request::AddBlock { block });
+                .call(zebra_state::RequestBlock::AddBlock { block });
 
             match add_block.await? {
                 zebra_state::Response::Added { hash } => Ok(hash),
@@ -156,7 +156,7 @@ pub fn init<S>(
        + Clone
        + 'static
 where
-    S: Service<zebra_state::Request, Response = zebra_state::Response, Error = Error>
+    S: Service<zebra_state::RequestBlock, Response = zebra_state::Response, Error = Error>
         + Send
         + Clone
         + 'static,
@@ -370,7 +370,7 @@ mod tests {
         let ready_state_service = state_service.ready_and().await.map_err(|e| eyre!(e))?;
         /// SPANDOC: Make sure the block was added to the state
         let state_response = ready_state_service
-            .call(zebra_state::Request::GetBlock { hash })
+            .call(zebra_state::RequestBlock::GetBlock { hash })
             .await
             .map_err(|e| eyre!(e))?;
 
@@ -416,7 +416,7 @@ mod tests {
         let ready_state_service = state_service.ready_and().await.map_err(|e| eyre!(e))?;
         /// SPANDOC: Make sure the block was added to the state
         let state_response = ready_state_service
-            .call(zebra_state::Request::GetBlock { hash })
+            .call(zebra_state::RequestBlock::GetBlock { hash })
             .await
             .map_err(|e| eyre!(e))?;
 
@@ -443,7 +443,7 @@ mod tests {
         let ready_state_service = state_service.ready_and().await.map_err(|e| eyre!(e))?;
         /// SPANDOC: But the state should still return the original block we added
         let state_response = ready_state_service
-            .call(zebra_state::Request::GetBlock { hash })
+            .call(zebra_state::RequestBlock::GetBlock { hash })
             .await
             .map_err(|e| eyre!(e))?;
 
@@ -500,7 +500,7 @@ mod tests {
         /// SPANDOC: Now make sure the block isn't in the state
         // TODO(teor || jlusby): check error kind
         ready_state_service
-            .call(zebra_state::Request::GetBlock {
+            .call(zebra_state::RequestBlock::GetBlock {
                 hash: arc_block.as_ref().into(),
             })
             .await

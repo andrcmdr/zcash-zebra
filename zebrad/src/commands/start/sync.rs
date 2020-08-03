@@ -48,7 +48,7 @@ impl<ZN, ZS, ZV> Syncer<ZN, ZS, ZV>
 where
     ZN: Service<zn::Request, Response = zn::Response, Error = Error> + Send + Clone + 'static,
     ZN::Future: Send,
-    ZS: Service<zs::Request, Response = zs::Response, Error = Error> + Send + Clone + 'static,
+    ZS: Service<zs::RequestBlock, Response = zs::Response, Error = Error> + Send + Clone + 'static,
     ZS::Future: Send,
     ZV: Service<Arc<Block>, Response = BlockHeaderHash, Error = Error> + Send + Clone + 'static,
     ZV::Future: Send,
@@ -122,7 +122,7 @@ where
                             .ready_and()
                             .await
                             .map_err(|e| eyre!(e))?
-                            .call(zebra_state::Request::GetDepth { hash })
+                            .call(zebra_state::RequestBlock::GetDepth { hash })
                             .await
                             .map_err(|e| eyre!(e))?;
                         if let zs::Response::Depth(None) = depth {

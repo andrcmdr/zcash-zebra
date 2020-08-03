@@ -1,11 +1,14 @@
 # Cargo files
-.*/target.*
+target/
 # Firebase caches (?)
 .firebase/
-# Emacs detritus
+# Emacs files
 *~
 \#*
 *\#
-# Vscode detrius
+# Vscode files
 .vscode/
+# IntelliJ IDEA files
+.idea/
+# zebra-state blocks & headers SledDB
 .zebra-state/

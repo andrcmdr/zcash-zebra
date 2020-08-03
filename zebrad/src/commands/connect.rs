@@ -117,7 +117,7 @@ where
         + Clone
         + 'static,
     ZN::Future: Send,
-    ZS: Service<zebra_state::Request, Response = zebra_state::Response, Error = Error>
+    ZS: Service<zebra_state::RequestBlock, Response = zebra_state::Response, Error = Error>
         + Send
         + Clone
         + 'static,
@@ -199,7 +199,7 @@ where
                             .ready_and()
                             .await
                             .map_err(|e| eyre!(e))?
-                            .call(zebra_state::Request::AddBlock { block })
+                            .call(zebra_state::RequestBlock::AddBlock { block })
                             .await
                             .map_err(|e| eyre!(e))?;
                     }
