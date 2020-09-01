@@ -9,7 +9,12 @@ use futures::{
 };
 use std::collections::BTreeSet;
 use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
-use zebra_chain::{block::BlockHeaderHash, types::BlockHeight};
+
+use zebra_chain::{
+//  block::BlockHeaderHash,
+    block::{BlockHeaderHash, Block, BlockHeader},
+    types::BlockHeight,
+};
 
 // genesis
 static GENESIS: BlockHeaderHash = BlockHeaderHash([
@@ -74,7 +79,7 @@ impl ConnectCmd {
         // Connect only to the specified peer.
         config.initial_mainnet_peers.insert(self.addr.to_string());
 
-        let state = zebra_state::in_memory::init();
+        let state = zebra_state::in_memory::init::<BlockHeader>();
         let (peer_set, _address_book) = zebra_network::init(config, node).await;
         let retry_peer_set = tower::retry::Retry::new(zebra_network::RetryErrors, peer_set.clone());
 
@@ -117,7 +122,7 @@ where
         + Clone
         + 'static,
     ZN::Future: Send,
-    ZS: Service<zebra_state::RequestBlock, Response = zebra_state::Response, Error = Error>
+    ZS: Service<zebra_state::RequestBlockHeader, Response = zebra_state::Response, Error = Error>
         + Send
         + Clone
         + 'static,
@@ -194,7 +199,7 @@ where
                 Some(Ok(zebra_network::Response::Blocks(blocks))) => {
                     for block in blocks {
                         self.downloaded_block_heights
-                            .insert(block.coinbase_height().unwrap());
+                            .insert(block.coinbase_height().unwrap()); // not applicable
                         self.state
                             .ready_and()
                             .await

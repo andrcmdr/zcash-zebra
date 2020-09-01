@@ -10,6 +10,7 @@ use zebra_chain::{
     block::{Block, BlockHeaderHash},
     types::BlockHeight,
 };
+
 use zebra_network::{self as zn, RetryLimit};
 use zebra_state::{self as zs};
 
@@ -300,7 +301,7 @@ where
                             for block in blocks {
                                 let mut verifier = verifier.clone();
                                 let handle = tokio::spawn(async move {
-                                    verifier.ready_and().await?.call(block).await
+                                    verifier.ready_and().await?.call(block).await // store headers and blocks
                                 });
                                 handles.push(handle);
                             }
