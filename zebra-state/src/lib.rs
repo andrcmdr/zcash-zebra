@@ -17,8 +17,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use zebra_chain::block::{Block, BlockHeaderHash, BlockHeader};
 
-pub mod in_memory;
 pub mod on_disk;
+pub mod on_disk_headersonly;
+pub mod in_memory;
+pub mod in_memory_headersonly;
 
 /// Configuration for networking code.
 #[derive(Clone, Debug, Deserialize, Serialize)]
