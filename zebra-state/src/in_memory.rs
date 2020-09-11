@@ -97,7 +97,8 @@ impl Service<RequestBlock> for InMemoryState<Block> {
 
 /// Return's a type that implement's the `zebra_state::Service` entirely in
 /// memory using `HashMaps`
-pub fn init<T: Sync + Send + Clone + Copy + 'static>() -> impl Service<
+// pub fn init<T: Sync + Send + Clone + Copy + 'static>() -> impl Service<
+pub fn init() -> impl Service<
     RequestBlock,
     Response = Response,
     Error = Error,

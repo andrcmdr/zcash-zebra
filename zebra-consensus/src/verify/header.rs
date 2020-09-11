@@ -19,7 +19,7 @@ use std::{
 };
 use tower::{buffer::Buffer, Service, ServiceExt};
 
-use zebra_chain::block::{BlockHeaderHash, Block, BlockHeader};
+use zebra_chain::block::{BlockHeader, BlockHeaderHash};
 
 /// Check if `block_header_time` is less than or equal to
 /// 2 hours in the future, according to the node's local clock (`now`).
@@ -115,7 +115,7 @@ where
             let now = Utc::now();
             node_time_check(block_header.time, now)?;
             block_header.is_equihash_solution_valid()?;
-            // coinbase_check(block.as_ref())?; // not applicable
+            // coinbase_check(block_header.as_ref())?; // didn't applicable for headers handling
 
             // `Tower::Buffer` requires a 1:1 relationship between `poll()`s
             // and `call()`s, because it reserves a buffer slot in each
@@ -155,8 +155,8 @@ pub fn init<S>(
     Error = Error,
     Future = impl Future<Output = Result<BlockHeaderHash, Error>>,
 > + Send
-       + Clone
-       + 'static
+  + Clone
+  + 'static
 where
     S: Service<zebra_state::RequestBlockHeader, Response = zebra_state::Response, Error = Error>
         + Send

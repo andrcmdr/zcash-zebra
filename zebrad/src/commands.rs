@@ -1,6 +1,7 @@
 //! Zebrad Subcommands
 
 mod connect;
+mod connect_headersonly;
 mod generate;
 mod revhex;
 mod seed;
@@ -8,7 +9,12 @@ mod start;
 mod version;
 
 use self::{
-    connect::ConnectCmd, generate::GenerateCmd, revhex::RevhexCmd, seed::SeedCmd, start::StartCmd,
+    connect::ConnectCmd,
+    connect_headersonly::ConnectHeadersOnlyCmd,
+    generate::GenerateCmd,
+    revhex::RevhexCmd,
+    seed::SeedCmd,
+    start::StartCmd,
     version::VersionCmd,
 };
 use crate::config::ZebradConfig;
@@ -28,8 +34,12 @@ pub enum ZebradCmd {
     Generate(GenerateCmd),
 
     /// The `connect` subcommand
-    #[options(help = "testing stub for dumping network messages")]
+    #[options(help = "testing stub for dumping network messages about blocks requests")]
     Connect(ConnectCmd),
+
+    /// The `connect_headersonly` subcommand
+    #[options(help = "testing stub for dumping network messages about block headers requests")]
+    ConnectHeadersOnly(ConnectHeadersOnlyCmd),
 
     /// The `help` subcommand
     #[options(help = "get usage information")]

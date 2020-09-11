@@ -58,7 +58,7 @@ impl Service<RequestBlockHeader> for InMemoryState<BlockHeader> {
 
                 async move { result }.boxed()
             }
-            /* didn't applicable for headers handling */
+            // didn't applicable for headers handling
             RequestBlockHeader::GetTip => {
                 let result = self
                     .index
@@ -69,7 +69,7 @@ impl Service<RequestBlockHeader> for InMemoryState<BlockHeader> {
 
                 async move { result }.boxed()
             }
-            /* didn't applicable for headers handling */
+            // didn't applicable for headers handling
             /* RequestBlockHeader::GetDepth { hash } => {
                 let storage = self.index.clone();
 
@@ -102,7 +102,8 @@ impl Service<RequestBlockHeader> for InMemoryState<BlockHeader> {
 
 /// Return's a type that implement's the `zebra_state::Service` entirely in
 /// memory using `HashMaps`
-pub fn init<T: Sync + Send + Clone + Copy + 'static>() -> impl Service<
+// pub fn init<T: Sync + Send + Clone + Copy + 'static>() -> impl Service<
+pub fn init() -> impl Service<
     RequestBlockHeader,
     Response = Response,
     Error = Error,

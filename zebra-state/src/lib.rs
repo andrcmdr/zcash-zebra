@@ -15,7 +15,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
-use zebra_chain::block::{Block, BlockHeaderHash, BlockHeader};
+use zebra_chain::block::{Block, BlockHeader, BlockHeaderHash};
 
 pub mod on_disk;
 pub mod on_disk_headersonly;

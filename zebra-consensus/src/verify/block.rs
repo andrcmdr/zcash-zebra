@@ -153,8 +153,8 @@ pub fn init<S>(
     Error = Error,
     Future = impl Future<Output = Result<BlockHeaderHash, Error>>,
 > + Send
-       + Clone
-       + 'static
+  + Clone
+  + 'static
 where
     S: Service<zebra_state::RequestBlock, Response = zebra_state::Response, Error = Error>
         + Send
