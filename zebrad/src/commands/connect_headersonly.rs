@@ -171,12 +171,16 @@ where
                 _ => unreachable!("FindBlocks always gets a BlockHeaderHashes response"),
             })
             .map(|hashes| {
+                let mut latest_block_header_hash = String::from("");
+                for byte in self.downloaded_block_header_hashes.iter().last().unwrap().0.iter() {
+                    latest_block_header_hash.push_str(format!("{:02x}", byte).as_str())
+                };
                 info!(
                     new_hashes = hashes.len(),
                     requested = self.requested_block_header_hashes,
                     in_flight = self.block_header_requests.len(),
                     downloaded = self.downloaded_block_header_hashes.len(),
-                    highest = self.downloaded_block_header_hashes.iter().last().unwrap().0,
+                    highest = latest_block_header_hash.as_str(),
                     "requested more hashes"
                 );
                 self.requested_block_header_hashes += hashes.len();
