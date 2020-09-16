@@ -7,7 +7,7 @@ use tower::{retry::Retry, Service, ServiceExt};
 use tracing_futures::Instrument;
 
 use zebra_chain::{
-    block::{Block, BlockHeaderHash},
+    block::{BlockHeader, BlockHeaderHash},
     types::BlockHeight,
 };
 
@@ -49,9 +49,9 @@ impl<ZN, ZS, ZV> Syncer<ZN, ZS, ZV>
 where
     ZN: Service<zn::Request, Response = zn::Response, Error = Error> + Send + Clone + 'static,
     ZN::Future: Send,
-    ZS: Service<zs::RequestBlock, Response = zs::Response, Error = Error> + Send + Clone + 'static,
+    ZS: Service<zs::RequestBlockHeader, Response = zs::Response, Error = Error> + Send + Clone + 'static,
     ZS::Future: Send,
-    ZV: Service<Arc<Block>, Response = BlockHeaderHash, Error = Error> + Send + Clone + 'static,
+    ZV: Service<Arc<BlockHeader>, Response = BlockHeaderHash, Error = Error> + Send + Clone + 'static,
     ZV::Future: Send,
 {
     #[instrument(skip(self))]
@@ -123,7 +123,7 @@ where
                             .ready_and()
                             .await
                             .map_err(|e| eyre!(e))?
-                            .call(zebra_state::RequestBlock::GetDepth { hash })
+                            .call(zebra_state::RequestBlockHeader::GetDepth { hash })
                             .await
                             .map_err(|e| eyre!(e))?;
                         if let zs::Response::Depth(None) = depth {
@@ -301,8 +301,8 @@ where
                             for block in blocks {
                                 let mut verifier = verifier.clone();
                                 let handle = tokio::spawn(async move {
-                                // entry point to storing blocks into on-disk state
-                                    verifier.ready_and().await?.call(block).await
+                                // entry point to storing block headers into on-disk state
+                                    verifier.ready_and().await?.call(block.header.into()).await
                                 });
                                 handles.push(handle);
                             }

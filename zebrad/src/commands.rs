@@ -6,6 +6,7 @@ mod generate;
 mod revhex;
 mod seed;
 mod start;
+mod start_headersonly;
 mod version;
 
 use self::{
@@ -15,6 +16,7 @@ use self::{
     revhex::RevhexCmd,
     seed::SeedCmd,
     start::StartCmd,
+    start_headersonly::StartHeadersOnlyCmd,
     version::VersionCmd,
 };
 use crate::config::ZebradConfig;
@@ -37,7 +39,7 @@ pub enum ZebradCmd {
     #[options(help = "testing stub for dumping network messages about blocks requests")]
     Connect(ConnectCmd),
 
-    /// The `connect_headersonly` subcommand
+    /// The `connectheadersonly` subcommand
     #[options(help = "testing stub for dumping network messages about block headers requests")]
     ConnectHeadersOnly(ConnectHeadersOnlyCmd),
 
@@ -54,8 +56,12 @@ pub enum ZebradCmd {
     Seed(SeedCmd),
 
     /// The `start` subcommand
-    #[options(help = "start the application")]
+    #[options(help = "start the application in blocks sync mode")]
     Start(StartCmd),
+
+    /// The `startheadersonly` subcommand
+    #[options(help = "start the application in block headers sync mode")]
+    StartHeadersOnly(StartHeadersOnlyCmd),
 
     /// The `version` subcommand
     #[options(help = "display version information")]
@@ -87,6 +93,7 @@ impl Configurable<ZebradConfig> for ZebradCmd {
     fn process_config(&self, config: ZebradConfig) -> Result<ZebradConfig, FrameworkError> {
         match self {
             ZebradCmd::Start(cmd) => cmd.override_config(config),
+            ZebradCmd::StartHeadersOnly(cmd) => cmd.override_config(config),
             _ => Ok(config),
         }
     }

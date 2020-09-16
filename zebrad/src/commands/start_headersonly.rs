@@ -1,4 +1,4 @@
-//! `start` subcommand - entry point for starting a zebra node
+//! `startheadersonly` subcommand - entry point for starting a zebra node
 //!
 //!  ## Application Structure
 //!
@@ -28,7 +28,7 @@ use zebra_chain::{
 //  block::{Block, BlockHeader, BlockHeaderHash},
 };
 
-mod sync;
+mod sync_headersonly;
 
 // genesis
 const GENESIS: BlockHeaderHash = BlockHeaderHash([
@@ -36,15 +36,15 @@ const GENESIS: BlockHeaderHash = BlockHeaderHash([
     29, 170, 27, 145, 113, 132, 236, 232, 15, 4, 0,
 ]);
 
-/// `start` subcommand
+/// `startheadersonly` subcommand
 #[derive(Command, Debug, Options)]
-pub struct StartCmd {
+pub struct StartHeadersOnlyCmd {
     /// Filter strings
     #[options(free)]
     filters: Vec<String>,
 }
 
-impl StartCmd {
+impl StartHeadersOnlyCmd {
     async fn start(&self) -> Result<(), Report> {
         info!(?self, "begin tower-based peer handling test stub");
 
@@ -57,17 +57,17 @@ impl StartCmd {
             1,
         );
         let config = app_config().network.clone();
-        let state = zebra_state::on_disk::init(zebra_state::Config::default());
+        let state = zebra_state::on_disk_headersonly::init(zebra_state::Config::default());
         let (peer_set, _address_book) = zebra_network::init(config, node).await;
-        let verifier = zebra_consensus::verify::block::init(state.clone());
+        let verifier = zebra_consensus::verify::header::init(state.clone());
 
-        let mut syncer = sync::Syncer::new(peer_set, state, verifier);
+        let mut syncer = sync_headersonly::Syncer::new(peer_set, state, verifier);
 
         syncer.sync().await
     }
 }
 
-impl Runnable for StartCmd {
+impl Runnable for StartHeadersOnlyCmd {
     /// Start the application.
     fn run(&self) {
         let rt = app_writer()
@@ -92,7 +92,7 @@ impl Runnable for StartCmd {
     }
 }
 
-impl config::Override<ZebradConfig> for StartCmd {
+impl config::Override<ZebradConfig> for StartHeadersOnlyCmd {
     // Process the given command line options, overriding settings from
     // a configuration file using explicit flags taken from command-line
     // arguments.
