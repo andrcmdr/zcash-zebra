@@ -301,7 +301,11 @@ where
                             for block in blocks {
                                 let mut verifier = verifier.clone();
                                 let handle = tokio::spawn(async move {
-                                // entry point to storing blocks into on-disk state
+                                    let hash: BlockHeaderHash = (&block.header).into();
+                                    let hash_str = hex::encode(&hash.0);
+                                    let height = block.coinbase_height();
+                                    tracing::info!("Header with height {:?} and hash {:?} stored!", height, hash_str);
+                                    // entry point to storing blocks into on-disk state
                                     verifier.ready_and().await?.call(block).await
                                 });
                                 handles.push(handle);

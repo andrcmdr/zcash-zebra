@@ -106,6 +106,10 @@ where
         //   - adjust state_service "unique block height" conditions
         let mut state_service = self.state_service.clone();
 
+        let hash: BlockHeaderHash = (&block.header).into();
+        let hash_str = hex::encode(&hash.0);
+        let height = block.coinbase_height();
+
         async move {
             // Since errors cause an early exit, try to do the
             // quick checks first.
@@ -122,6 +126,8 @@ where
                 .ready_and()
                 .await?
                 .call(zebra_state::RequestBlock::AddBlock { block });
+
+            tracing::info!("Header with height {:?} and hash {:?} stored!", height, hash_str);
 
             match add_block.await? {
                 zebra_state::Response::Added { hash } => Ok(hash),

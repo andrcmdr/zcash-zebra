@@ -108,6 +108,10 @@ where
         //   - adjust state_service "unique block height" conditions
         let mut state_service = self.state_service.clone();
 
+        let hash: BlockHeaderHash = block_header.as_ref().into();
+        let hash_str = hex::encode(&hash.0);
+        // let height = block.coinbase_height();
+
         async move {
             // Since errors cause an early exit, try to do the
             // quick checks first.
@@ -124,6 +128,9 @@ where
                 .ready_and()
                 .await?
                 .call(zebra_state::RequestBlockHeader::AddBlockHeader { block_header });
+
+            // tracing::info!("Header with height {:?} and hash {:?} stored!", height, hash_str);
+            tracing::info!("Header with hash {:?} stored!", hash_str);
 
             match add_block_header.await? {
                 zebra_state::Response::Added { hash } => Ok(hash),
@@ -327,7 +334,7 @@ mod tests {
         let block_header = block.header;
         let hash: BlockHeaderHash = (&block_header).into();
 
-        let state_service = Box::new(zebra_state::in_memory::init::<BlockHeader>());
+        let state_service = Box::new(zebra_state::in_memory_headersonly::init());
         let mut block_header_verifier = super::init(state_service);
 
         /// SPANDOC: Make sure the verifier service is ready
@@ -357,7 +364,7 @@ mod tests {
         let block_header = block.header;
         let hash: BlockHeaderHash = (&block_header).into();
 
-        let state_service = zebra_state::in_memory::init();
+        let state_service = zebra_state::in_memory_headersonly::init();
         let mut block_header_verifier = super::init(state_service.clone());
 
         /// SPANDOC: Make sure the verifier service is ready
@@ -404,7 +411,7 @@ mod tests {
         let block_header = block.header;
         let hash: BlockHeaderHash = (&block_header).into();
 
-        let state_service = zebra_state::in_memory::init();
+        let state_service = zebra_state::in_memory_headersonly::init();
         let mut block_header_verifier = super::init(state_service.clone());
 
         /// SPANDOC: Make sure the verifier service is ready (1/2)
@@ -477,7 +484,7 @@ mod tests {
             <Block>::zcash_deserialize(&zebra_test::vectors::BLOCK_MAINNET_415000_BYTES[..])?;
         let mut block_header = block.header;
 
-        let mut state_service = zebra_state::in_memory::init::<BlockHeader>();
+        let mut state_service = zebra_state::in_memory_headersonly::init();
         let mut block_header_verifier = super::init(state_service.clone());
 
         // Modify the block's time in block header
@@ -531,7 +538,7 @@ mod tests {
         let mut block_header = block.header;
 
         // Service variables
-        let state_service = Box::new(zebra_state::in_memory::init::<BlockHeader>());
+        let state_service = Box::new(zebra_state::in_memory_headersonly::init());
         let mut block_header_verifier = super::init(state_service.clone());
 
         let ready_verifier_service = block_header_verifier.ready_and().await.map_err(|e| eyre!(e))?;
@@ -562,10 +569,9 @@ mod tests {
         zebra_test::init();
 
         // Service variables
-//      let state_service = Box::new(zebra_state::in_memory::init::<Block>());
-        let state_service = zebra_state::in_memory::init::<Block>();
+        let state_service = Box::new(zebra_state::in_memory::init());
 //      let mut block_verifier = super::init(state_service.clone());
-        let mut block_verifier = crate::verify::block::init::<Block>(state_service.clone());
+        let mut block_verifier = crate::verify::block::init(state_service.clone());
 
         // Get a header of a block
         let header =
