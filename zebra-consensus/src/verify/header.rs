@@ -129,7 +129,7 @@ where
                 .await?
                 .call(zebra_state::RequestBlockHeader::AddBlockHeader { block_header });
 
-            // tracing::info!("Header with height {:?} and hash {:?} stored!", height, hash_str);
+            // tracing::info!("Block header with height {:?} and hash {:?} stored!", height, hash_str);
             tracing::info!("Header with hash {:?} stored!", hash_str);
 
             match add_block_header.await? {
@@ -364,7 +364,7 @@ mod tests {
         let block_header = block.header;
         let hash: BlockHeaderHash = (&block_header).into();
 
-        let state_service = zebra_state::in_memory_headersonly::init();
+        let mut state_service = zebra_state::in_memory_headersonly::init();
         let mut block_header_verifier = super::init(state_service.clone());
 
         /// SPANDOC: Make sure the verifier service is ready
@@ -389,7 +389,7 @@ mod tests {
             block_header: returned_block_header,
         } = state_response
         {
-            assert_eq!(block_header, returned_block_header);
+            assert_eq!(Arc::new(block_header.clone()), returned_block_header);
         } else {
             bail!("unexpected response kind: {:?}", state_response);
         }
@@ -411,7 +411,7 @@ mod tests {
         let block_header = block.header;
         let hash: BlockHeaderHash = (&block_header).into();
 
-        let state_service = zebra_state::in_memory_headersonly::init();
+        let mut state_service = zebra_state::in_memory_headersonly::init();
         let mut block_header_verifier = super::init(state_service.clone());
 
         /// SPANDOC: Make sure the verifier service is ready (1/2)
@@ -436,7 +436,7 @@ mod tests {
             block_header: returned_block_header,
         } = state_response
         {
-            assert_eq!(block_header, returned_block_header);
+            assert_eq!(Arc::new(block_header.clone()), returned_block_header);
         } else {
             bail!("unexpected response kind: {:?}", state_response);
         }
@@ -463,7 +463,7 @@ mod tests {
             block_header: returned_block_header,
         } = state_response
         {
-            assert_eq!(block_header, returned_block_header);
+            assert_eq!(Arc::new(block_header.clone()), returned_block_header);
         } else {
             bail!("unexpected response kind: {:?}", state_response);
         }

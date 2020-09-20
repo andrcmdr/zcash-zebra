@@ -7,7 +7,7 @@ use zebra_test::transcript::Transcript;
 
 use zebra_state::*;
 
-static ADD_BLOCK_TRANSCRIPT: Lazy<Vec<(Request, Response)>> = Lazy::new(|| {
+static ADD_BLOCK_TRANSCRIPT: Lazy<Vec<(RequestBlock, Response)>> = Lazy::new(|| {
     let block: Arc<_> =
         Block::zcash_deserialize(&zebra_test::vectors::BLOCK_MAINNET_415000_BYTES[..])
             .unwrap()
@@ -15,16 +15,16 @@ static ADD_BLOCK_TRANSCRIPT: Lazy<Vec<(Request, Response)>> = Lazy::new(|| {
     let hash = block.as_ref().into();
     vec![
         (
-            Request::AddBlock {
+            RequestBlock::AddBlock {
                 block: block.clone(),
             },
             Response::Added { hash },
         ),
-        (Request::GetBlock { hash }, Response::Block { block }),
+        (RequestBlock::GetBlock { hash }, Response::Block { block }),
     ]
 });
 
-static GET_TIP_TRANSCRIPT: Lazy<Vec<(Request, Response)>> = Lazy::new(|| {
+static GET_TIP_TRANSCRIPT: Lazy<Vec<(RequestBlock, Response)>> = Lazy::new(|| {
     let block0: Arc<_> =
         Block::zcash_deserialize(&zebra_test::vectors::BLOCK_MAINNET_GENESIS_BYTES[..])
             .unwrap()
@@ -37,14 +37,14 @@ static GET_TIP_TRANSCRIPT: Lazy<Vec<(Request, Response)>> = Lazy::new(|| {
     vec![
         // Insert higher block first, lower block second
         (
-            Request::AddBlock { block: block1 },
+            RequestBlock::AddBlock { block: block1 },
             Response::Added { hash: hash1 },
         ),
         (
-            Request::AddBlock { block: block0 },
+            RequestBlock::AddBlock { block: block0 },
             Response::Added { hash: hash0 },
         ),
-        (Request::GetTip, Response::Tip { hash: hash1 }),
+        (RequestBlock::GetTip, Response::Tip { hash: hash1 }),
     ]
 });
 
