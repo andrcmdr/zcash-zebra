@@ -16,7 +16,7 @@ tower = "0.3"
 tracing = "0.1.16"
 tracing-futures = "0.2.4"
 
-hex = ""
+hex = "0.4.2"
 
 tower-batch = { path = "../tower-batch/" }
 zebra-chain = { path = "../zebra-chain" }

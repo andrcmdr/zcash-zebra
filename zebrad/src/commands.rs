@@ -1,13 +1,13 @@
 //! Zebrad Subcommands
 
-mod connect;
-mod connect_headersonly;
-mod generate;
-mod revhex;
-mod seed;
-mod start;
-mod start_headersonly;
-mod version;
+pub mod connect;
+pub mod connect_headersonly;
+pub mod generate;
+pub mod revhex;
+pub mod seed;
+pub mod start;
+pub mod start_headersonly;
+pub mod version;
 
 use self::{
     connect::ConnectCmd,

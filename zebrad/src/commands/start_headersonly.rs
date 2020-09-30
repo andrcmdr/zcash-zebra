@@ -41,7 +41,7 @@ const GENESIS: BlockHeaderHash = BlockHeaderHash([
 pub struct StartHeadersOnlyCmd {
     /// Filter strings
     #[options(free)]
-    filters: Vec<String>,
+    pub filters: Vec<String>,
 }
 
 impl StartHeadersOnlyCmd {
