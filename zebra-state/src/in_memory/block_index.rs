@@ -1,7 +1,7 @@
 use std::{
     collections::{
         btree_map::Entry as BTreeMapEntry,
-//      hash_map::Entry as HashMapEntry,
+        hash_map::Entry as HashMapEntry,
         BTreeMap,
         HashMap
     },
@@ -9,20 +9,14 @@ use std::{
     sync::Arc,
 };
 
-type Error = Box<dyn error::Error + Send + Sync + 'static>;
-
 use zebra_chain::{
     block::{Block, BlockHeaderHash},
     types::BlockHeight,
 };
 
-/*
-pub(super) trait Index<T> {
-    fn insert(&mut self, block_item: impl Into<Arc<T>>) -> Result<BlockHeaderHash, Box<dyn Error + Send + Sync + 'static>>;
-    fn get(&mut self, query: impl Into<BlockQuery>) -> Option<Arc<T>>;
-    fn get_tip(&self) -> Option<BlockHeaderHash>;
-}
-*/
+use super::QueryType;
+
+type Error = Box<dyn error::Error + Send + Sync + 'static>;
 
 #[derive(Default, Clone)]
 pub(super) struct BlockIndex<T> {
@@ -30,29 +24,68 @@ pub(super) struct BlockIndex<T> {
     pub by_height: BTreeMap<BlockHeight, Arc<T>>,
 }
 
+#[derive(Copy, Clone)]
+enum Either<Hash, Height, E> {
+    Hash(Hash),
+    Height(Height),
+    Error(E),
+}
+
 impl BlockIndex<Block> {
     pub fn insert(
         &mut self,
         block: impl Into<Arc<Block>>,
-    ) -> Result<BlockHeaderHash, Error> {
+    ) -> Result<(BlockHeaderHash, BlockHeight), Error> {
         let block = block.into();
-        let hash = block.as_ref().into();
+        let hash: BlockHeaderHash = block.as_ref().into();
         let height = block.coinbase_height().unwrap();
 
-        match self.by_height.entry(height) {
+        let hash_result = match self.by_hash.entry(hash) {
+            HashMapEntry::Vacant(entry) => {
+                let _ = entry.insert(block.clone());
+            //  let _ = self.by_hash.insert(hash, block);
+                Either::<BlockHeaderHash, BlockHeight, _>::Hash(hash)
+            }
+            HashMapEntry::Occupied(_) => Either::Error(format!("Entry (block) with this hash {:?} already exist", hash))
+        };
+
+        let height_result = match self.by_height.entry(height) {
             BTreeMapEntry::Vacant(entry) => {
                 let _ = entry.insert(block.clone());
-                let _ = self.by_hash.insert(hash, block);
-                Ok(hash)
+            //  let _ = self.by_height.insert(height, block);
+                Either::<BlockHeaderHash, BlockHeight, _>::Height(height)
             }
-            BTreeMapEntry::Occupied(_) => Err("forks in the chain aren't supported yet")?,
+            BTreeMapEntry::Occupied(_) => Either::Error(format!("Entry (block) with this height {:?} already exist", height))
+        };
+
+        match (&hash_result, &height_result) {
+            (Either::Hash(hash), Either::Height(height)) => Ok((hash.clone(), height.clone())),
+            (Either::Error(_hash_error), Either::Error(_height_error)) => Err(format!("Entry (block) with this hash {:?} & height {:?} already exist", hash, height))?,
+            _ => {
+                let mut error_result: String = String::from("");
+//              [hash_result, height_result]
+//                  .iter()
+//                  .map(|error| match error {
+//                      Either::Error(e) => error_result = format!(" {:?} {:?};", error_result, e),
+//                      _ => error_result = format!(" {:?};", error_result),
+//                  } );
+                [hash_result, height_result]
+                    .iter()
+                    .map(|error| if let Either::Error(e) = error {
+                            error_result = format!(" {:?} {:?};", error_result, e)
+                        } else {
+                            error_result = format!(" {:?};", error_result)
+                        }
+                    );
+                Err(format!("Error: {:?}", error_result))?
+            },
         }
     }
 
-    pub fn get(&self, query: impl Into<BlockQuery>) -> Result<Option<Arc<Block>>, Error> {
+    pub fn get(&self, query: impl Into<QueryType>) -> Result<Option<Arc<Block>>, Error> {
         let value = match query.into() {
-            BlockQuery::ByHash(hash) => self.by_hash.get(&hash),
-            BlockQuery::ByHeight(height) => self.by_height.get(&height),
+            QueryType::ByHash(hash) => self.by_hash.get(&hash),
+            QueryType::ByHeight(height) => self.by_height.get(&height),
         }
         .cloned();
 
@@ -66,8 +99,7 @@ impl BlockIndex<Block> {
         let last_entry = self.by_height
             .iter()
             .next_back()
-            .map(|(_key, value)| value)
-            .map(|block| block.clone());
+            .map(|(_height, block)| block.clone());
 //          .map(|block| block.as_ref().into()); // -> Option<BlockHeaderHash>
 
         match last_entry {
@@ -82,6 +114,7 @@ impl BlockIndex<Block> {
     }
 }
 
+/*
 pub(super) enum BlockQuery {
     ByHash(BlockHeaderHash),
     ByHeight(BlockHeight),
@@ -98,3 +131,4 @@ impl From<BlockHeight> for BlockQuery {
         Self::ByHeight(height)
     }
 }
+*/

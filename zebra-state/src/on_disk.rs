@@ -1,6 +1,7 @@
 //! The primary implementation of the `zebra_state::Service` built upon sled
-use super::{RequestBlock, Response};
+use super::{RequestBlock, Response, QueryType};
 use crate::Config;
+use std::path::PathBuf;
 use futures::prelude::*;
 use std::sync::Arc;
 use std::{
@@ -18,15 +19,6 @@ use zebra_chain::{
 
 type Error = Box<dyn error::Error + Send + Sync + 'static>;
 
-/*
-pub(super) trait State<T> {
-    fn new(config: &Config) -> Self;
-    fn insert(&mut self, block_item: impl Into<Arc<T>>) -> Result<BlockHeaderHash, Error>;
-    fn get(&self, query: impl Into<BlockQuery>) -> Result<Option<Arc<T>>, Error>;
-    fn get_tip(&self) -> Result<Option<Arc<T>>, Error>;
-}
-*/
-
 #[derive(Clone)]
 struct SledState {
     storage: sled::Db,
@@ -34,7 +26,7 @@ struct SledState {
 
 impl SledState {
     pub(crate) fn new(config: &Config) -> Self {
-        let config = config.sled_config();
+        let config = config.sled_config(PathBuf::from("./.zebra-state/blocks"));
 
         Self {
             storage: config.open().unwrap(),
@@ -44,7 +36,7 @@ impl SledState {
     pub(super) fn insert(
         &mut self,
         block: impl Into<Arc<Block>>,
-    ) -> Result<BlockHeaderHash, Error> {
+    ) -> Result<(BlockHeaderHash, BlockHeight), Error> {
         let block = block.into();
         let hash: BlockHeaderHash = block.as_ref().into();
         let height = block.coinbase_height().unwrap();
@@ -59,18 +51,18 @@ impl SledState {
         by_height.insert(&height.0.to_be_bytes(), bytes.as_slice())?;
         by_hash.insert(&hash.0, bytes)?;
 
-        Ok(hash)
+        Ok((hash, height))
     }
 
-    pub(super) fn get(&self, query: impl Into<BlockQuery>) -> Result<Option<Arc<Block>>, Error> {
+    pub(super) fn get(&self, query: impl Into<QueryType>) -> Result<Option<Arc<Block>>, Error> {
         let query = query.into();
         let value = match query {
-            BlockQuery::ByHash(hash) => {
+            QueryType::ByHash(hash) => {
                 let by_hash = self.storage.open_tree(b"by_hash")?;
                 let key = &hash.0;
                 by_hash.get(key)?
             }
-            BlockQuery::ByHeight(height) => {
+            QueryType::ByHeight(height) => {
                 let by_height = self.storage.open_tree(b"by_height")?;
                 let key = height.0.to_be_bytes();
                 by_height.get(key)?
@@ -112,7 +104,7 @@ impl Default for SledState {
     }
 }
 
-impl Service<RequestBlock> for SledState {
+impl<T: Into<QueryType> + Send + 'static> Service<RequestBlock<T>> for SledState {
     type Response = Response;
     type Error = Error;
     type Future =
@@ -122,18 +114,18 @@ impl Service<RequestBlock> for SledState {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: RequestBlock) -> Self::Future {
+    fn call(&mut self, req: RequestBlock<T>) -> Self::Future {
         match req {
             RequestBlock::AddBlock { block } => {
                 let mut storage = self.clone();
 
-                async move { storage.insert(block).map(|hash| Response::Added { hash }) }.boxed()
+                async move { storage.insert(block).map(|(hash, height)| Response::Added { hash, height }) }.boxed()
             }
-            RequestBlock::GetBlock { hash } => {
+            RequestBlock::GetBlock { query } => {
                 let storage = self.clone();
                 async move {
                     storage
-                        .get(hash)?
+                        .get(query)?
                         .map(|block| Response::Block { block })
                         .ok_or_else(|| "block could not be found".into())
                 }
@@ -144,8 +136,8 @@ impl Service<RequestBlock> for SledState {
                 async move {
                     storage
                         .get_tip()?
-                        .map(|block| block.as_ref().into())
-                        .map(|hash| Response::Tip { hash })
+                        .map(|block| (block.as_ref().into(), block.coinbase_height().unwrap()))
+                        .map(|(hash, height)| Response::Tip { hash, height })
                         .ok_or_else(|| "zebra-state contains no blocks".into())
                 }
                 .boxed()
@@ -194,6 +186,7 @@ impl AsRef<[u8]> for BytesHeight {
     }
 }
 
+/*
 pub(super) enum BlockQuery {
     ByHash(BlockHeaderHash),
     ByHeight(BlockHeight),
@@ -210,16 +203,18 @@ impl From<BlockHeight> for BlockQuery {
         Self::ByHeight(height)
     }
 }
+*/
 
 /// Return's a type that implement's the `zebra_state::Service` using `sled`
-pub fn init(
+pub fn init<T: Into<QueryType> + Send + Sync + Clone + 'static>(
     config: Config,
 ) -> impl Service<
-    RequestBlock,
+    RequestBlock<T>,
     Response = Response,
     Error = Error,
     Future = impl Future<Output = Result<Response, Error>>,
-> + Send
+> + Sync
+  + Send
   + Clone
   + 'static {
     Buffer::new(SledState::new(&config), 1)

@@ -3,8 +3,7 @@
 //! This service is provided as an independent implementation of the
 //! zebra-state service to use in verifying the correctness of `on_disk`'s
 //! `Service` implementation.
-// use crate::in_memory::block_index::Index;
-use super::{RequestBlock, Response};
+use super::{RequestBlock, Response, QueryType};
 use futures::prelude::*;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -29,7 +28,7 @@ struct InMemoryState<T> {
     index: block_index::BlockIndex<T>,
 }
 
-impl Service<RequestBlock> for InMemoryState<Block> {
+impl<T: Into<QueryType>> Service<RequestBlock<T>> for InMemoryState<Block> {
     type Response = Response;
     type Error = Error;
     type Future =
@@ -39,31 +38,31 @@ impl Service<RequestBlock> for InMemoryState<Block> {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: RequestBlock) -> Self::Future {
+    fn call(&mut self, req: RequestBlock<T>) -> Self::Future {
         match req {
             RequestBlock::AddBlock { block } => {
                 let result = self
                     .index
                     .insert(block)
-                    .map(|hash| Response::Added { hash });
+                    .map(|(hash, height)| Response::Added { hash, height });
 
-                async { result }.boxed()
+                async move { result }.boxed()
             }
-            RequestBlock::GetBlock { hash } => {
+            RequestBlock::GetBlock { query } => {
                 let result = self
                     .index
-                    .get(hash).expect("GetBlock by hash - block could not be found")
+                    .get(query).unwrap() //? .unwrap_or(default: T) .expect("GetBlock - block could not be found")
                     .map(|block| Response::Block { block })
-                    .ok_or_else(|| "GetBlock by hash - block could not be found".into());
+                    .ok_or_else(|| "GetBlock - block could not be found".into());
 
                 async move { result }.boxed()
             }
             RequestBlock::GetTip => {
                 let result = self
                     .index
-                    .get_tip().expect("GetTip - zebra-state contains no blocks")
-                    .map(|block| block.as_ref().into())
-                    .map(|hash| Response::Tip { hash })
+                    .get_tip().unwrap() //? .unwrap_or(default: T) .expect("GetTip - zebra-state contains no blocks")
+                    .map(|block| (block.as_ref().into(), block.coinbase_height().unwrap()))
+                    .map(|(hash, height)| Response::Tip { hash, height })
                     .ok_or_else(|| "GetTip - zebra-state contains no blocks".into());
 
                 async move { result }.boxed()
@@ -97,9 +96,8 @@ impl Service<RequestBlock> for InMemoryState<Block> {
 
 /// Return's a type that implement's the `zebra_state::Service` entirely in
 /// memory using `HashMaps`
-// pub fn init<T: Sync + Send + Clone + Copy + 'static>() -> impl Service<
-pub fn init() -> impl Service<
-    RequestBlock,
+pub fn init<T: Into<QueryType> + Send + Sync + Clone + 'static>() -> impl Service<
+    RequestBlock<T>,
     Response = Response,
     Error = Error,
     Future = impl Future<Output = Result<Response, Error>>,

@@ -34,4 +34,3 @@ pub(super) enum IBCQuery<Hash, Height> {
     ByHash(Hash),
     ByHeight(Height),
 }
-

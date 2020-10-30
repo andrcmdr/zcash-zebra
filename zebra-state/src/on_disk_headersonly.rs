@@ -1,6 +1,7 @@
 //! The primary implementation of the `zebra_state::Service` built upon sled
-use super::{RequestBlockHeader, Response};
+use super::{RequestBlockHeader, Response, QueryType};
 use crate::Config;
+use std::path::PathBuf;
 use futures::prelude::*;
 use std::sync::Arc;
 use std::{
@@ -18,15 +19,6 @@ use zebra_chain::{
 
 type Error = Box<dyn error::Error + Send + Sync + 'static>;
 
-/*
-pub(super) trait State<T> {
-    fn new(config: &Config) -> Self;
-    fn insert(&mut self, block_item: impl Into<Arc<T>>) -> Result<BlockHeaderHash, Error>;
-    fn get(&self, query: impl Into<BlockQuery>) -> Result<Option<Arc<T>>, Error>;
-    fn get_tip(&self) -> Result<Option<Arc<T>>, Error>;
-}
-*/
-
 #[derive(Clone)]
 struct SledState {
     storage: sled::Db,
@@ -34,7 +26,7 @@ struct SledState {
 
 impl SledState {
     pub(crate) fn new(config: &Config) -> Self {
-        let config = config.sled_config();
+        let config = config.sled_config(PathBuf::from("./.zebra-state/headers"));
 
         Self {
             storage: config.open().unwrap(),
@@ -44,36 +36,39 @@ impl SledState {
     pub(super) fn insert(
         &mut self,
         block_header: impl Into<Arc<BlockHeader>>,
-    ) -> Result<BlockHeaderHash, Error> {
+        block_height: BlockHeight,
+    ) -> Result<(BlockHeaderHash, BlockHeight), Error> {
         let block_header = block_header.into();
         let hash: BlockHeaderHash = block_header.as_ref().into();
-//      let height = block.coinbase_height().unwrap();
+//      let height = block.coinbase_height().unwrap(); // didn't applicable for block height handling
+        let height = block_height;
 
-//      let by_height = self.storage.open_tree(b"by_height")?;
         let by_hash = self.storage.open_tree(b"by_hash")?;
+        let by_height = self.storage.open_tree(b"by_height")?;
+        let hash_height = self.storage.open_tree(b"hash_height")?;
 
         let mut bytes = Vec::new();
         block_header.zcash_serialize(&mut bytes)?;
 
         // TODO(jlusby): make this transactional
-//      by_height.insert(&height.0.to_be_bytes(), bytes.as_slice())?;
-        by_hash.insert(&hash.0, bytes)?;
+        by_hash.insert(&hash.0, bytes.as_slice())?;
+        by_height.insert(&height.0.to_be_bytes(), bytes.as_slice())?;
+        hash_height.insert(&hash.0, &height.0.to_be_bytes())?;
 
-        Ok(hash)
+        Ok((hash, height))
     }
 
-    pub(super) fn get(&self, query: impl Into<BlockQuery>) -> Result<Option<Arc<BlockHeader>>, Error> {
+    pub(super) fn get(&self, query: impl Into<QueryType>) -> Result<Option<Arc<BlockHeader>>, Error> {
         let query = query.into();
         let value = match query {
-            BlockQuery::ByHash(hash) => {
+            QueryType::ByHash(hash) => {
                 let by_hash = self.storage.open_tree(b"by_hash")?;
                 let key = &hash.0;
                 by_hash.get(key)?
             }
-            // didn't applicable for headers handling
-            BlockQuery::ByHeight(height) => {
+            QueryType::ByHeight(height) => {
                 let by_height = self.storage.open_tree(b"by_height")?;
-                let key = height.0.to_be_bytes();
+                let key = &height.0.to_be_bytes();
                 by_height.get(key)?
             }
         };
@@ -87,19 +82,68 @@ impl SledState {
         }
     }
 
-    // didn't applicable for headers handling
-    pub(super) fn get_tip(&self) -> Result<Option<Arc<BlockHeader>>, Error> {
-        let tree = self.storage.open_tree(b"by_height")?;
-        let last_entry = tree.iter().values().next_back();
+    pub(super) fn get_tip(&self) -> Result<Option<(Arc<BlockHeader>, BlockHeaderHash, BlockHeight)>, Error> {
+        let by_height = self.storage.open_tree(b"by_height")?;
+        let last_entry = by_height.iter().values().next_back();
+        let last_entry_height = by_height.iter().keys().next_back();
 
-        match last_entry {
-            Some(Ok(bytes)) => Ok(Some(ZcashDeserialize::zcash_deserialize(bytes.as_ref())?)),
-            Some(Err(e)) => Err(e)?,
-            None => Ok(None),
+        match (&last_entry, &last_entry_height) {
+            (Some(Ok(last_entry_bytes)), Some(Ok(last_entry_height_bytes))) => {
+                let block_header: BlockHeader = ZcashDeserialize::zcash_deserialize(last_entry_bytes.as_ref())?;
+                let arc_block_header: Arc<BlockHeader> = block_header.into();
+                let block_header_hash: BlockHeaderHash = arc_block_header.as_ref().into();
+//              let height_repr: HeightRepr = last_entry_height_bytes.clone().into();
+//              match last_entry_height_bytes.clone().into() {
+//                  HeightRepr::Int(block_height) => Ok(Some((arc_block_header, block_header_hash, block_height))),
+//                  _ => Ok(None),
+//              }
+                if let HeightRepr::Int(block_height) = last_entry_height_bytes.clone().into() { Ok(Some((arc_block_header, block_header_hash, block_height))) } else { Ok(None) }
+            },
+            _ => {
+                let mut error_result: String = String::from("");
+//              [last_entry, last_entry_height]
+//                  .iter()
+//                  .map(|error| match error {
+//                      Some(Err(e)) => error_result = format!(" {:?} {:?};", error_result, e),
+//                      _ => error_result = format!(" {:?};", error_result),
+//                  } );
+                [last_entry, last_entry_height]
+                    .iter()
+                    .map(|error| if let Some(Err(e)) = error {
+                            error_result = format!(" {:?} {:?};", error_result, e)
+                        } else {
+                            error_result = format!(" {:?};", error_result)
+                        }
+                    );
+                Err(format!("Error: {:?}", error_result))?
+            },
         }
     }
 
-    #[allow(dead_code)]
+    pub(super) fn get_height(&self, hash: BlockHeaderHash) -> Result<Option<BlockHeight>, Error> {
+        let hash_height = self.storage.open_tree(b"hash_height")?;
+        let key = &hash.0;
+        let value = hash_height.get(key);
+
+        match value {
+            Ok(Some(vec)) => {
+//              let mut bytes: [u8; 4] = [0u8; 4];
+//              bytes.clone_from_slice(&vec);
+//              let block_height = BlockHeight(u32::from_be_bytes(bytes));
+
+//              let height_repr: HeightRepr = vec.into();
+//              match vec.into() {
+//                  HeightRepr::Int(block_height) => Ok(Some(block_height)),
+//                  _ => Ok(None),
+//              }
+
+                if let HeightRepr::Int(block_height) = vec.into() { Ok(Some(block_height)) } else { Ok(None) }
+            },
+            Err(e) => Err(e)?,
+            Ok(None) => Ok(None),
+        }
+    }
+
     fn contains(&self, hash: &BlockHeaderHash) -> Result<bool, Error> {
         let by_hash = self.storage.open_tree(b"by_hash")?;
         let key = &hash.0;
@@ -115,7 +159,7 @@ impl Default for SledState {
     }
 }
 
-impl Service<RequestBlockHeader> for SledState {
+impl<T: Into<QueryType> + Send + 'static> Service<RequestBlockHeader<T>> for SledState {
     type Response = Response;
     type Error = Error;
     type Future =
@@ -125,37 +169,34 @@ impl Service<RequestBlockHeader> for SledState {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: RequestBlockHeader) -> Self::Future {
+    fn call(&mut self, req: RequestBlockHeader<T>) -> Self::Future {
         match req {
-            RequestBlockHeader::AddBlockHeader { block_header } => {
+            RequestBlockHeader::AddBlockHeader { block_header, block_height } => {
                 let mut storage = self.clone();
 
-                async move { storage.insert(block_header).map(|hash| Response::Added { hash }) }.boxed()
+                async move { storage.insert(block_header, block_height).map(|(hash, height)| Response::Added { hash, height }) }.boxed()
             }
-            RequestBlockHeader::GetBlockHeader { hash } => {
+            RequestBlockHeader::GetBlockHeader { query } => {
                 let storage = self.clone();
                 async move {
                     storage
-                        .get(hash)?
+                        .get(query)?
                         .map(|block_header| Response::BlockHeader { block_header })
                         .ok_or_else(|| "block header could not be found".into())
                 }
                 .boxed()
             }
-            // didn't applicable for headers handling
             RequestBlockHeader::GetTip => {
                 let storage = self.clone();
                 async move {
                     storage
                         .get_tip()?
-                        .map(|block_header| block_header.as_ref().into())
-                        .map(|hash| Response::Tip { hash })
+                        .map(|(_header, hash, height)| Response::Tip { hash, height })
                         .ok_or_else(|| "zebra-state contains no block headers".into())
                 }
                 .boxed()
             }
-            // didn't applicable for headers handling
-            /* RequestBlockHeader::GetDepth { hash } => {
+            RequestBlockHeader::GetDepth { hash } => {
                 let storage = self.clone();
 
                 async move {
@@ -163,27 +204,86 @@ impl Service<RequestBlockHeader> for SledState {
                         return Ok(Response::Depth(None));
                     }
 
-                    let block_header = storage
-                        .get(hash)?
+                    let block_header_height = storage
+                        .get_height(hash)?
                         .expect("block header must be present if contains() returned true");
 
                     let tip = storage
                         .get_tip()?
+                        .map(|(_header, _hash, height)| height)
                         .expect("storage must have a tip if it contains() the previous block header");
 
-                    let depth =
-                        tip.coinbase_height().unwrap().0 - block_header.coinbase_height().unwrap().0;
+                    let depth = tip.0 - block_header_height.0;
 
                     Ok(Response::Depth(Some(depth)))
                 }
                 .boxed()
-            } */
-            RequestBlockHeader::GetDepth { hash: _ } => {
-                async move { Ok(Response::Depth(None)) }.boxed()
             }
+         /* RequestBlockHeader::GetDepth { hash: _ } => {
+                async move { Ok(Response::Depth(None)) }.boxed()
+            } */
         }
     }
 }
+
+use sled::IVec;
+
+// Rust compiler's orphaning rules doesn't accept impl's for types in external crates
+// Thus need to implement local type (enum) which encapsulates external types for impl's of generic traits From<T> or Into<T>
+#[derive(Clone)]
+enum HeightRepr {
+    Int(BlockHeight),
+    Byte(IVec),
+}
+
+impl From<IVec> for HeightRepr {
+    fn from(vec: IVec) -> Self {
+        let mut bytes: [u8; 4] = [0u8; 4];
+        bytes.clone_from_slice(&vec);
+        Self::Int(BlockHeight(u32::from_be_bytes(bytes)))
+    }
+}
+
+impl From<BlockHeight> for HeightRepr {
+    fn from(height: BlockHeight) -> Self {
+        let bytes = height.0.to_be_bytes();
+        Self::Byte(IVec::from(&bytes))
+    }
+}
+
+/*
+// Impossible implementors due to Rust compiler's orphaning rules in impl's for types in external crates
+
+impl From<IVec> for BlockHeight {
+    fn from(vec: IVec) -> Self {
+        let mut bytes: [u8; 4];
+        bytes.clone_from_slice(&vec);
+        BlockHeight(u32::from_be_bytes(bytes))
+    }
+}
+
+impl Into<BlockHeight> for IVec {
+    fn into(self) -> BlockHeight {
+        let mut bytes: [u8; 4];
+        bytes.clone_from_slice(&self);
+        BlockHeight(u32::from_be_bytes(bytes))
+    }
+}
+
+impl From<BlockHeight> for IVec {
+    fn from(height: BlockHeight) -> Self {
+        let bytes = height.0.to_be_bytes();
+        IVec::from(&bytes)
+    }
+}
+
+impl Into<IVec> for BlockHeight {
+    fn into(self) -> IVec {
+        let bytes = self.0.to_be_bytes();
+        IVec::from(&bytes)
+    }
+}
+*/
 
 /// An alternate repr for `BlockHeight` that implements `AsRef<[u8]>` for usage
 /// with sled
@@ -202,6 +302,7 @@ impl AsRef<[u8]> for BytesHeight {
     }
 }
 
+/*
 pub(super) enum BlockQuery {
     ByHash(BlockHeaderHash),
     ByHeight(BlockHeight),
@@ -218,16 +319,18 @@ impl From<BlockHeight> for BlockQuery {
         Self::ByHeight(height)
     }
 }
+*/
 
 /// Return's a type that implement's the `zebra_state::Service` using `sled`
-pub fn init(
+pub fn init<T: Into<QueryType> + Send + Sync + Clone + 'static>(
     config: Config,
 ) -> impl Service<
-    RequestBlockHeader,
+    RequestBlockHeader<T>,
     Response = Response,
     Error = Error,
     Future = impl Future<Output = Result<Response, Error>>,
-> + Send
+> + Sync
+  + Send
   + Clone
   + 'static {
     Buffer::new(SledState::new(&config), 1)

@@ -63,7 +63,7 @@ impl IBCRequest<BlockHeaderHash, BlockHeight> for IBCItems<BlockHeaderHash, Bloc
                     .await?
                     .call(zebra_state::RequestBlockHeader::GetBlockHeader { hash });
 
-                    tracing::info!("Block with hash {:?} requested!", hash);
+                    tracing::info!("Block header with hash {:?} requested!", hash);
 
                     match get_block_header.await? {
                         zebra_state::Response::BlockHeader { block_header } => Ok(Some(block_header)),
@@ -79,7 +79,7 @@ impl IBCRequest<BlockHeaderHash, BlockHeight> for IBCItems<BlockHeaderHash, Bloc
                     .await?
                     .call(zebra_state::RequestBlockHeader::GetBlockHeader { height });
 
-                    tracing::info!("Block with height {:?} requested!", height);
+                    tracing::info!("Block header with height {:?} requested!", height);
 
                     match get_block_header.await? {
                         zebra_state::Response::BlockHeader { block_header } => Ok(Some(block_header)),
@@ -103,7 +103,7 @@ impl IBCRequest<BlockHeaderHash, BlockHeight> for IBCItems<BlockHeaderHash, Bloc
             tracing::info!("Tip requested!");
 
             match get_tip.await? {
-                zebra_state::Response::Tip { hash } => Ok(Some(hash)),
+                zebra_state::Response::Tip { hash, height } => Ok(Some((hash, height))),
                 _ => Err("Some error in requesting block header that is the tip of the current chain".into()),
             }
         }.boxed()
