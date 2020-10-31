@@ -63,20 +63,19 @@ impl BlockIndex<Block> {
             (Either::Error(_hash_error), Either::Error(_height_error)) => Err(format!("Entry (block) with this hash {:?} & height {:?} already exist", hash, height))?,
             _ => {
                 let mut error_result: String = String::from("");
-//              [hash_result, height_result]
-//                  .iter()
-//                  .map(|error| match error {
+//              for error in [hash_result, height_result].iter() {
+//                  match error {
 //                      Either::Error(e) => error_result = format!(" {:?} {:?};", error_result, e),
 //                      _ => error_result = format!(" {:?};", error_result),
-//                  } );
-                [hash_result, height_result]
-                    .iter()
-                    .map(|error| if let Either::Error(e) = error {
-                            error_result = format!(" {:?} {:?};", error_result, e)
-                        } else {
-                            error_result = format!(" {:?};", error_result)
-                        }
-                    );
+//                  }
+//              };
+                for error in &[hash_result, height_result] {
+                    if let Either::Error(e) = error {
+                        error_result = format!(" {:?} {:?};", error_result, e)
+                    } else {
+                        error_result = format!(" {:?};", error_result)
+                    }
+                };
                 Err(format!("Error: {:?}", error_result))?
             },
         }

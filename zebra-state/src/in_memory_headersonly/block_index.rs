@@ -75,20 +75,19 @@ impl BlockIndex<BlockHeader> {
             (Either::Hash(hash), Either::Height(height), Either::HashHeight(_header_hash, _header_height)) => Ok((hash.clone(), height.clone())),
             _ => {
                 let mut error_result: String = String::from("");
-//              [hash_result, height_result, hash_height_result]
-//                  .iter()
-//                  .map(|error| match error {
+//              for error in [hash_result, height_result, hash_height_result].iter() {
+//                  match error {
 //                      Either::Error(e) => error_result = format!(" {:?} {:?};", error_result, e),
 //                      _ => error_result = format!(" {:?};", error_result),
-//                  } );
-                [hash_result, height_result, hash_height_result]
-                    .iter()
-                    .map(|error| if let Either::Error(e) = error {
-                            error_result = format!(" {:?} {:?};", error_result, e)
-                        } else {
-                            error_result = format!(" {:?};", error_result)
-                        }
-                    );
+//                  }
+//              };
+                for error in &[hash_result, height_result, hash_height_result] {
+                    if let Either::Error(e) = error {
+                        error_result = format!(" {:?} {:?};", error_result, e)
+                    } else {
+                        error_result = format!(" {:?};", error_result)
+                    }
+                };
                 Err(format!("Error: {:?}", error_result))?
             },
         }

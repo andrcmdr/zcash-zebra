@@ -101,20 +101,19 @@ impl SledState {
             },
             _ => {
                 let mut error_result: String = String::from("");
-//              [last_entry, last_entry_height]
-//                  .iter()
-//                  .map(|error| match error {
+//              for error in [last_entry, last_entry_height].iter() {
+//                  match error {
 //                      Some(Err(e)) => error_result = format!(" {:?} {:?};", error_result, e),
 //                      _ => error_result = format!(" {:?};", error_result),
-//                  } );
-                [last_entry, last_entry_height]
-                    .iter()
-                    .map(|error| if let Some(Err(e)) = error {
-                            error_result = format!(" {:?} {:?};", error_result, e)
-                        } else {
-                            error_result = format!(" {:?};", error_result)
-                        }
-                    );
+//                  }
+//              };
+                for error in &[last_entry, last_entry_height] {
+                    if let Some(Err(e)) = error {
+                        error_result = format!(" {:?} {:?};", error_result, e)
+                    } else {
+                        error_result = format!(" {:?};", error_result)
+                    }
+                };
                 Err(format!("Error: {:?}", error_result))?
             },
         }
