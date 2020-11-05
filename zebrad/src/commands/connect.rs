@@ -4,10 +4,11 @@ use crate::{components::tokio::TokioComponent, prelude::*};
 use abscissa_core::{Command, Options, Runnable};
 use color_eyre::eyre::{eyre, Report, WrapErr};
 use futures::{
-    prelude::*,
+//  prelude::*,
     stream::{FuturesUnordered, StreamExt},
 };
 use std::collections::BTreeSet;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
 
 use zebra_chain::{
@@ -15,6 +16,9 @@ use zebra_chain::{
 //  block::{Block, BlockHeader, BlockHeaderHash},
     types::BlockHeight,
 };
+
+use zebra_state::QueryType;
+use std::marker::PhantomData as RequestType;
 
 // genesis
 static GENESIS: BlockHeaderHash = BlockHeaderHash([
@@ -30,7 +34,15 @@ pub struct ConnectCmd {
         help = "The address of the node to connect to.",
         default = "127.0.0.1:8233"
     )]
-    addr: std::net::SocketAddr,
+    addr: SocketAddr,
+}
+
+impl Default for ConnectCmd {
+    fn default() -> Self {
+        Self {
+            addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8233),
+        }
+    }
 }
 
 impl Runnable for ConnectCmd {
@@ -90,6 +102,7 @@ impl ConnectCmd {
             retry_peer_set,
             peer_set,
             state,
+            request_type: RequestType,
             tip: GENESIS,
             block_requests: FuturesUnordered::new(),
             requested_block_heights: 0,
@@ -102,52 +115,56 @@ impl ConnectCmd {
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 
-struct Connect<ZN, ZS>
+struct Connect<ZN, ZS, T>
 where
     ZN: Service<zebra_network::Request>,
+    T: Into<QueryType>,
 {
     retry_peer_set: tower::retry::Retry<zebra_network::RetryErrors, ZN>,
     peer_set: ZN,
     state: ZS,
+    request_type: RequestType<T>,
     tip: BlockHeaderHash,
     block_requests: FuturesUnordered<ZN::Future>,
     requested_block_heights: usize,
     downloaded_block_heights: BTreeSet<BlockHeight>,
 }
 
-impl<ZN, ZS> Connect<ZN, ZS>
+impl<ZN, ZS, T> Connect<ZN, ZS, T>
 where
     ZN: Service<zebra_network::Request, Response = zebra_network::Response, Error = Error>
         + Send
         + Clone
         + 'static,
     ZN::Future: Send,
-    ZS: Service<zebra_state::RequestBlock, Response = zebra_state::Response, Error = Error>
+    ZS: Service<zebra_state::RequestBlock<T>, Response = zebra_state::Response, Error = Error>
         + Send
         + Clone
         + 'static,
     ZS::Future: Send,
+    T: Into<QueryType>,
 {
     async fn connect(&mut self) -> Result<(), Report> {
         // TODO(jlusby): Replace with real state service
 
-        while self.requested_block_heights < 700_000 {
+//      while self.requested_block_heights < 1_000_000 {
+        loop {
             let hashes = self.next_hashes().await?;
             self.tip = *hashes.last().unwrap();
 
             // Request the corresponding blocks in chunks
             self.request_blocks(hashes).await?;
 
-            // Allow at most 300 block requests in flight.
-            self.drain_requests(300).await?;
+            // Allow at most 500 block requests in flight.
+            self.drain_requests(500).await?;
         }
 
-        self.drain_requests(0).await?;
+//      self.drain_requests(0).await?;
 
-        let eternity = future::pending::<()>();
-        eternity.await;
+//      let eternity = future::pending::<()>();
+//      eternity.await;
 
-        Ok(())
+//      Ok(())
     }
 
     async fn next_hashes(&mut self) -> Result<Vec<BlockHeaderHash>, Report> {

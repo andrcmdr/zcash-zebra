@@ -75,7 +75,10 @@ pub(crate) fn coinbase_check(block: &Block) -> Result<(), Error> {
 
 use std::marker::PhantomData as RequestType;
 
-struct BlockVerifier<S, T: Into<QueryType>> {
+struct BlockVerifier<S, T>
+where
+    T: Into<QueryType>,
+{
     /// The underlying `ZebraState`, possibly wrapped in other services.
     state_service: S,
     request_type: RequestType<T>,
@@ -117,7 +120,7 @@ where
 
         let hash: BlockHeaderHash = block.as_ref().into();
         let hash_str = hex::encode(&hash.0);
-        let height = block.coinbase_height();
+        let height = block.coinbase_height().unwrap();
 
         async move {
             // Since errors cause an early exit, try to do the

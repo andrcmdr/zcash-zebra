@@ -77,7 +77,10 @@ pub(crate) fn coinbase_check(block: &Block) -> Result<(), Error> {
 
 use std::marker::PhantomData as RequestType;
 
-struct BlockHeaderVerifier<S, T: Into<QueryType>> {
+struct BlockHeaderVerifier<S, T>
+where 
+    T: Into<QueryType>,
+{
     /// The underlying `ZebraState`, possibly wrapped in other services.
     state_service: S,
     request_type: RequestType<T>,
@@ -119,7 +122,7 @@ where
 
         let hash: BlockHeaderHash = block_header.as_ref().into();
         let hash_str = hex::encode(&hash.0);
-        // let height = block.coinbase_height();
+        // let height = block.coinbase_height().unwrap();
         let block_height = BlockHeight(0);
 
         async move {

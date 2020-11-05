@@ -7,15 +7,18 @@ use futures::{
 //  prelude::*,
     stream::{FuturesUnordered, StreamExt},
 };
-// use std::collections::BTreeSet;
 use std::collections::HashSet;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
 
 use zebra_chain::{
     block::BlockHeaderHash,
 //  block::{Block, BlockHeader, BlockHeaderHash},
-//  types::BlockHeight,
+    types::BlockHeight,
 };
+
+use zebra_state::QueryType;
+use std::marker::PhantomData as RequestType;
 
 // genesis
 static GENESIS: BlockHeaderHash = BlockHeaderHash([
@@ -31,7 +34,15 @@ pub struct ConnectHeadersOnlyCmd {
         help = "The address of the node to connect to.",
         default = "127.0.0.1:8233"
     )]
-    addr: std::net::SocketAddr,
+    addr: SocketAddr,
+}
+
+impl Default for ConnectHeadersOnlyCmd {
+    fn default() -> Self {
+        Self {
+            addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8233),
+        }
+    }
 }
 
 impl Runnable for ConnectHeadersOnlyCmd {
@@ -84,7 +95,7 @@ impl ConnectHeadersOnlyCmd {
         let (peer_set, _address_book) = zebra_network::init(config, node).await;
         let retry_peer_set = tower::retry::Retry::new(zebra_network::RetryErrors, peer_set.clone());
 
-     // block heights didn't applicable for headers handling directly
+     // handling of block heights doesn't compatible with headers handling & didn't applicable for headers handling
         let mut downloaded_block_header_hashes = HashSet::<BlockHeaderHash>::new();
         downloaded_block_header_hashes.insert(GENESIS);
 
@@ -92,6 +103,7 @@ impl ConnectHeadersOnlyCmd {
             retry_peer_set,
             peer_set,
             state,
+            request_type: RequestType,
             tip: GENESIS,
             block_header_requests: FuturesUnordered::new(),
             requested_block_header_hashes: 0,
@@ -104,31 +116,34 @@ impl ConnectHeadersOnlyCmd {
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 
-struct ConnectHeadersOnly<ZN, ZS>
+struct ConnectHeadersOnly<ZN, ZS, T>
 where
     ZN: Service<zebra_network::Request>,
+    T: Into<QueryType>,
 {
     retry_peer_set: tower::retry::Retry<zebra_network::RetryErrors, ZN>,
     peer_set: ZN,
     state: ZS,
+    request_type: RequestType<T>,
     tip: BlockHeaderHash,
     block_header_requests: FuturesUnordered<ZN::Future>,
     requested_block_header_hashes: usize,
     downloaded_block_header_hashes: HashSet<BlockHeaderHash>,
 }
 
-impl<ZN, ZS> ConnectHeadersOnly<ZN, ZS>
+impl<ZN, ZS, T> ConnectHeadersOnly<ZN, ZS, T>
 where
     ZN: Service<zebra_network::Request, Response = zebra_network::Response, Error = Error>
         + Send
         + Clone
         + 'static,
     ZN::Future: Send,
-    ZS: Service<zebra_state::RequestBlockHeader, Response = zebra_state::Response, Error = Error>
+    ZS: Service<zebra_state::RequestBlockHeader<T>, Response = zebra_state::Response, Error = Error>
         + Send
         + Clone
         + 'static,
     ZS::Future: Send,
+    T: Into<QueryType>,
 {
     async fn connect(&mut self) -> Result<(), Report> {
         // TODO(jlusby): Replace with real state service
@@ -209,13 +224,14 @@ where
                         let block_header_hash: BlockHeaderHash = block_header.as_ref().into();
                         self.downloaded_block_header_hashes
                      // didn't applicable for headers handling
-                     // .insert(block_header.coinbase_height().unwrap());
+                     // .insert(block.coinbase_height().unwrap());
                         .insert(block_header_hash);
+                        let block_height = BlockHeight(0);
                         self.state
                             .ready_and()
                             .await
                             .map_err(|e| eyre!(e))?
-                            .call(zebra_state::RequestBlockHeader::AddBlockHeader { block_header })
+                            .call(zebra_state::RequestBlockHeader::AddBlockHeader { block_header, block_height })
                             .await
                             .map_err(|e| eyre!(e))?;
                     }
