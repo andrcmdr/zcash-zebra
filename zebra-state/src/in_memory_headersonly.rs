@@ -28,7 +28,7 @@ struct InMemoryState<T> {
     index: block_index::BlockIndex<T>,
 }
 
-impl<T: Into<QueryType>> Service<RequestBlockHeader<T>> for InMemoryState<BlockHeader> {
+impl Service<RequestBlockHeader> for InMemoryState<BlockHeader> {
     type Response = Response;
     type Error = Error;
     type Future =
@@ -38,7 +38,7 @@ impl<T: Into<QueryType>> Service<RequestBlockHeader<T>> for InMemoryState<BlockH
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: RequestBlockHeader<T>) -> Self::Future {
+    fn call(&mut self, req: RequestBlockHeader) -> Self::Future {
         match req {
             RequestBlockHeader::AddBlockHeader { block_header, block_height } => {
                 let result = self
@@ -98,8 +98,8 @@ impl<T: Into<QueryType>> Service<RequestBlockHeader<T>> for InMemoryState<BlockH
 
 /// Return's a type that implement's the `zebra_state::Service` entirely in
 /// memory using `HashMaps`
-pub fn init<T: Into<QueryType> + Send + Sync + Clone + 'static>() -> impl Service<
-    RequestBlockHeader<T>,
+pub fn init() -> impl Service<
+    RequestBlockHeader,
     Response = Response,
     Error = Error,
     Future = impl Future<Output = Result<Response, Error>>,

@@ -58,7 +58,7 @@ impl Default for Config {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// A state request, used to manipulate the zebra-state on disk or in memory
-pub enum RequestBlock<T: Into<QueryType>> {
+pub enum RequestBlock {
     // TODO(jlusby): deprecate in the future based on our validation story
     /// Add a block to the zebra-state
     AddBlock {
@@ -68,7 +68,7 @@ pub enum RequestBlock<T: Into<QueryType>> {
     /// Get a block from the zebra-state
     GetBlock {
         /// The hash or height used to identify the block
-        query: T,
+        query: QueryType,
     },
     /// Get the block that is the tip of the current chain
     GetTip,
@@ -81,7 +81,7 @@ pub enum RequestBlock<T: Into<QueryType>> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// A state request, used to manipulate the zebra-state on disk or in memory
-pub enum RequestBlockHeader<T: Into<QueryType>> {
+pub enum RequestBlockHeader {
     /// Add a block header to the zebra-state
     AddBlockHeader {
         /// The block header & block height to be added to the state
@@ -92,7 +92,7 @@ pub enum RequestBlockHeader<T: Into<QueryType>> {
     /// Get a block header from the zebra-state
     GetBlockHeader {
         /// The hash or height used to identify the block header
-        query: T,
+        query: QueryType,
     },
     /// Get the block that is the tip of the current chain
     GetTip,
@@ -139,8 +139,12 @@ pub enum Response {
     ),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 /// The type of the query for the `GetBlock` and `GetBlockHeader` requests
-pub enum QueryType {
+pub enum QueryType
+where
+    Self: Sized,
+ {
     /// The type of the query for the `GetBlock` and `GetBlockHeader` requests by hash
     ByHash(BlockHeaderHash),
     /// The type of the query for the `GetBlock` and `GetBlockHeader` requests by height

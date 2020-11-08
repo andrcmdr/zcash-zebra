@@ -15,16 +15,13 @@ use zebra_network::{self as zn, RetryLimit};
 use zebra_state::{self as zs};
 
 use zebra_state::QueryType;
-use std::marker::PhantomData as RequestType;
 
-pub struct Syncer<ZN, ZS, ZV, T>
+pub struct Syncer<ZN, ZS, ZV>
 where
     ZN: Service<zn::Request>,
-    T: Into<QueryType>,
 {
     pub peer_set: ZN,
     pub state: ZS,
-    pub request_type: RequestType<T>,
     pub verifier: ZV,
     pub retry_peer_set: Retry<RetryLimit, ZN>,
     pub prospective_tips: HashSet<BlockHeaderHash>,
@@ -32,17 +29,15 @@ where
     pub fanout: NumReq,
 }
 
-impl<ZN, ZS, ZV, T> Syncer<ZN, ZS, ZV, T>
+impl<ZN, ZS, ZV> Syncer<ZN, ZS, ZV>
 where
     ZN: Service<zn::Request> + Clone,
-    T: Into<QueryType>,
 {
     pub fn new(peer_set: ZN, state: ZS, verifier: ZV) -> Self {
         let retry_peer_set = Retry::new(RetryLimit::new(3), peer_set.clone());
         Self {
             peer_set,
             state,
-            request_type: RequestType,
             verifier,
             retry_peer_set,
             block_requests: FuturesUnordered::new(),
@@ -52,7 +47,7 @@ where
     }
 }
 
-impl<ZN, ZS, ZV, T> Syncer<ZN, ZS, ZV, T>
+impl<ZN, ZS, ZV> Syncer<ZN, ZS, ZV>
 where
     ZN: Service<zn::Request, Response = zn::Response, Error = Error> + Send + Clone + 'static,
     ZN::Future: Send,
@@ -60,7 +55,6 @@ where
     ZS::Future: Send,
     ZV: Service<Arc<BlockHeader>, Response = BlockHeaderHash, Error = Error> + Send + Clone + 'static,
     ZV::Future: Send,
-    T: Into<QueryType>,
 {
     #[instrument(skip(self))]
     pub async fn sync(&mut self) -> Result<(), Report> {

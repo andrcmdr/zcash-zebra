@@ -28,8 +28,6 @@ use zebra_chain::{
 //  block::{Block, BlockHeader, BlockHeaderHash},
 };
 
-use std::marker::PhantomData as RequestType;
-
 mod sync_headersonly;
 
 // genesis
@@ -61,7 +59,7 @@ impl StartHeadersOnlyCmd {
         let config = app_config().network.clone();
         let state = zebra_state::on_disk_headersonly::init(zebra_state::Config::default());
         let (peer_set, _address_book) = zebra_network::init(config, node).await;
-        let verifier = zebra_consensus::verify::header::init(state.clone(), RequestType);
+        let verifier = zebra_consensus::verify::header::init(state.clone());
 
         let mut syncer = sync_headersonly::Syncer::new(peer_set, state, verifier);
 

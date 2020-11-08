@@ -18,7 +18,6 @@ use zebra_chain::{
 };
 
 use zebra_state::QueryType;
-use std::marker::PhantomData as RequestType;
 
 // genesis
 static GENESIS: BlockHeaderHash = BlockHeaderHash([
@@ -102,7 +101,6 @@ impl ConnectCmd {
             retry_peer_set,
             peer_set,
             state,
-            request_type: RequestType,
             tip: GENESIS,
             block_requests: FuturesUnordered::new(),
             requested_block_heights: 0,
@@ -115,34 +113,31 @@ impl ConnectCmd {
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 
-struct Connect<ZN, ZS, T>
+struct Connect<ZN, ZS>
 where
     ZN: Service<zebra_network::Request>,
-    T: Into<QueryType>,
 {
     retry_peer_set: tower::retry::Retry<zebra_network::RetryErrors, ZN>,
     peer_set: ZN,
     state: ZS,
-    request_type: RequestType<T>,
     tip: BlockHeaderHash,
     block_requests: FuturesUnordered<ZN::Future>,
     requested_block_heights: usize,
     downloaded_block_heights: BTreeSet<BlockHeight>,
 }
 
-impl<ZN, ZS, T> Connect<ZN, ZS, T>
+impl<ZN, ZS> Connect<ZN, ZS>
 where
     ZN: Service<zebra_network::Request, Response = zebra_network::Response, Error = Error>
         + Send
         + Clone
         + 'static,
     ZN::Future: Send,
-    ZS: Service<zebra_state::RequestBlock<T>, Response = zebra_state::Response, Error = Error>
+    ZS: Service<zebra_state::RequestBlock, Response = zebra_state::Response, Error = Error>
         + Send
         + Clone
         + 'static,
     ZS::Future: Send,
-    T: Into<QueryType>,
 {
     async fn connect(&mut self) -> Result<(), Report> {
         // TODO(jlusby): Replace with real state service

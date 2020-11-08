@@ -104,7 +104,7 @@ impl Default for SledState {
     }
 }
 
-impl<T: Into<QueryType> + Send + 'static> Service<RequestBlock<T>> for SledState {
+impl Service<RequestBlock> for SledState {
     type Response = Response;
     type Error = Error;
     type Future =
@@ -114,7 +114,7 @@ impl<T: Into<QueryType> + Send + 'static> Service<RequestBlock<T>> for SledState
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: RequestBlock<T>) -> Self::Future {
+    fn call(&mut self, req: RequestBlock) -> Self::Future {
         match req {
             RequestBlock::AddBlock { block } => {
                 let mut storage = self.clone();
@@ -206,10 +206,10 @@ impl From<BlockHeight> for BlockQuery {
 */
 
 /// Return's a type that implement's the `zebra_state::Service` using `sled`
-pub fn init<T: Into<QueryType> + Send + Sync + Clone + 'static>(
+pub fn init(
     config: Config,
 ) -> impl Service<
-    RequestBlock<T>,
+    RequestBlock,
     Response = Response,
     Error = Error,
     Future = impl Future<Output = Result<Response, Error>>,
