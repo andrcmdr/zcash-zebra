@@ -31,7 +31,7 @@ type Error = Box<dyn error::Error + Send + Sync + 'static>;
 use crate::prelude::*;
 
 impl dyn IBCRunnable {
-    fn run(&self) {
+    pub fn run(&self) {
         //  let arg = String::from("-c ./zebrad.toml start-headers-only");
         //  zebrad::prelude::Application::run(&APPLICATION, vec![arg].into_iter());
             zebrad::prelude::Application::run(&APPLICATION, vec!["-c".to_string(), "./zebrad.toml".to_string(), "start-headers-only".to_string()].into_iter());

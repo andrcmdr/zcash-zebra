@@ -53,7 +53,7 @@ where
     ZN::Future: Send,
     ZS: Service<zs::RequestBlockHeader, Response = zs::Response, Error = Error> + Send + Clone + 'static,
     ZS::Future: Send,
-    ZV: Service<Arc<BlockHeader>, Response = (BlockHeaderHash, BlockHeight), Error = Error> + Send + Clone + 'static,
+    ZV: Service<(Arc<BlockHeader>, BlockHeight), Response = (BlockHeaderHash, BlockHeight), Error = Error> + Send + Clone + 'static,
     ZV::Future: Send,
 {
     #[instrument(skip(self))]
@@ -305,10 +305,10 @@ where
                                 let handle = tokio::spawn(async move {
                                     let hash: BlockHeaderHash = block.as_ref().into();
                                     let hash_str = hex::encode(&hash.0);
-                                    let height = block.coinbase_height();
+                                    let height = block.coinbase_height().unwrap();
                                     tracing::info!("Block header with height {:?} and hash {:?} stored!", height, hash_str);
                                 //  entry point to storing block headers into on-disk state
-                                    verifier.ready_and().await?.call(block.header.into()).await
+                                    verifier.ready_and().await?.call((block.header.into(), height)).await
                                 });
                                 handles.push(handle);
                             }
@@ -317,7 +317,7 @@ where
                         }
 
                         while let Some(res) = handles.next().await {
-                            let _hash = res??;
+                            let (_hash, _height) = res??;
                         }
 
                         Ok::<_, Error>(())

@@ -317,7 +317,7 @@ where
                         }
 
                         while let Some(res) = handles.next().await {
-                            let _hash = res??;
+                            let (_hash, _height) = res??;
                         }
 
                         Ok::<_, Error>(())

@@ -87,7 +87,7 @@ type Error = Box<dyn error::Error + Send + Sync + 'static>;
 /// The BlockHeaderVerifier service implementation.
 ///
 /// After verification, blocks are added to the underlying state service.
-impl<S> Service<Arc<BlockHeader>> for BlockHeaderVerifier<S>
+impl<S> Service<(Arc<BlockHeader>, BlockHeight)> for BlockHeaderVerifier<S>
 where
     S: Service<zebra_state::RequestBlockHeader, Response = zebra_state::Response, Error = Error>
         + Send
@@ -106,17 +106,18 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, block_header: Arc<BlockHeader>) -> Self::Future {
+    fn call(&mut self, header: (Arc<BlockHeader>, BlockHeight)) -> Self::Future {
         // TODO(jlusby): Error = Report, handle errors from state_service.
         // TODO(teor):
         //   - handle chain reorgs
         //   - adjust state_service "unique block height" conditions
         let mut state_service = self.state_service.clone();
 
-        let hash: BlockHeaderHash = block_header.as_ref().into();
+        let hash: BlockHeaderHash = header.0.as_ref().into();
         let hash_str = hex::encode(&hash.0);
         // let height = block.coinbase_height().unwrap();
-        let block_height = BlockHeight(0);
+        let block_header = header.0;
+        let block_height = header.1;
 
         async move {
             // Since errors cause an early exit, try to do the
@@ -135,8 +136,7 @@ where
                 .await?
                 .call(zebra_state::RequestBlockHeader::AddBlockHeader { block_header, block_height });
 
-            // tracing::info!("Block header with height {:?} and hash {:?} stored!", height, hash_str);
-            tracing::info!("Header with hash {:?} stored!", hash_str);
+            tracing::info!("Block header with height {:?} and hash {:?} stored!", block_height, hash_str);
 
             match add_block_header.await? {
                 zebra_state::Response::Added { hash, height } => Ok((hash, height)),
@@ -163,7 +163,7 @@ where
 pub fn init<S>(
     state_service: S,
 ) -> impl Service<
-    Arc<BlockHeader>,
+    (Arc<BlockHeader>, BlockHeight),
     Response = (BlockHeaderHash, BlockHeight),
     Error = Error,
     Future = impl Future<Output = Result<(BlockHeaderHash, BlockHeight), Error>>,
@@ -338,6 +338,7 @@ mod tests {
         let block =
             Arc::<Block>::zcash_deserialize(&zebra_test::vectors::BLOCK_MAINNET_415000_BYTES[..])?;
         let block_header = block.header;
+        let block_height = block.coinbase_height().unwrap();
         let hash: BlockHeaderHash = (&block_header).into();
 
         let state_service = zebra_state::in_memory_headersonly::init();
@@ -347,11 +348,11 @@ mod tests {
         let ready_verifier_service = block_header_verifier.ready_and().await.map_err(|e| eyre!(e))?;
         /// SPANDOC: Verify the block header
         let verify_response = ready_verifier_service
-            .call(Arc::new(block_header.clone()))
+            .call((Arc::new(block_header.clone()), block_height))
             .await
             .map_err(|e| eyre!(e))?;
 
-        assert_eq!(verify_response, hash);
+        assert_eq!(verify_response, (hash, block_height));
 
         Ok(())
     }
@@ -368,20 +369,21 @@ mod tests {
         let block =
             Arc::<Block>::zcash_deserialize(&zebra_test::vectors::BLOCK_MAINNET_415000_BYTES[..])?;
         let block_header = block.header;
+        let block_height = block.coinbase_height().unwrap();
         let hash: BlockHeaderHash = (&block_header).into();
 
-        let state_service = zebra_state::in_memory_headersonly::init();
+        let mut state_service = zebra_state::in_memory_headersonly::init();
         let mut block_header_verifier = super::init(state_service.clone());
 
         /// SPANDOC: Make sure the verifier service is ready
         let ready_verifier_service = block_header_verifier.ready_and().await.map_err(|e| eyre!(e))?;
         /// SPANDOC: Verify the block header
         let verify_response = ready_verifier_service
-            .call(Arc::new(block_header.clone()))
+            .call((Arc::new(block_header.clone()), block_height))
             .await
             .map_err(|e| eyre!(e))?;
 
-        assert_eq!(verify_response, hash);
+        assert_eq!(verify_response, (hash, block_height));
 
         /// SPANDOC: Make sure the state service is ready
         let ready_state_service = state_service.ready_and().await.map_err(|e| eyre!(e))?;
@@ -415,20 +417,21 @@ mod tests {
         let block =
             Arc::<Block>::zcash_deserialize(&zebra_test::vectors::BLOCK_MAINNET_415000_BYTES[..])?;
         let block_header = block.header;
+        let block_height = block.coinbase_height().unwrap();
         let hash: BlockHeaderHash = (&block_header).into();
 
-        let state_service = zebra_state::in_memory_headersonly::init();
+        let mut state_service = zebra_state::in_memory_headersonly::init();
         let mut block_header_verifier = super::init(state_service.clone());
 
         /// SPANDOC: Make sure the verifier service is ready (1/2)
         let ready_verifier_service = block_header_verifier.ready_and().await.map_err(|e| eyre!(e))?;
         /// SPANDOC: Verify the block for the first time
         let verify_response = ready_verifier_service
-            .call(Arc::new(block_header.clone()))
+            .call((Arc::new(block_header.clone()), block_height))
             .await
             .map_err(|e| eyre!(e))?;
 
-        assert_eq!(verify_response, hash);
+        assert_eq!(verify_response, (hash, block_height));
 
         /// SPANDOC: Make sure the state service is ready (1/2)
         let ready_state_service = state_service.ready_and().await.map_err(|e| eyre!(e))?;
@@ -453,7 +456,7 @@ mod tests {
         // TODO(teor): ignore duplicate block verifies?
         // TODO(teor || jlusby): check error kind
         ready_verifier_service
-            .call(Arc::new(block_header.clone()))
+            .call((Arc::new(block_header.clone()), block_height))
             .await
             .unwrap_err();
 
@@ -489,6 +492,7 @@ mod tests {
         let block =
             <Block>::zcash_deserialize(&zebra_test::vectors::BLOCK_MAINNET_415000_BYTES[..])?;
         let mut block_header = block.header;
+        let block_height = block.coinbase_height().unwrap();
 
         let mut state_service = zebra_state::in_memory_headersonly::init();
         let mut block_header_verifier = super::init(state_service.clone());
@@ -511,7 +515,7 @@ mod tests {
         /// SPANDOC: Try to add the block, and expect failure
         // TODO(teor || jlusby): check error kind
         ready_verifier_service
-            .call(arc_block_header.clone())
+            .call((arc_block_header.clone(), block_height))
             .await
             .unwrap_err();
 
@@ -543,6 +547,7 @@ mod tests {
             Block::zcash_deserialize(&zebra_test::vectors::BLOCK_MAINNET_415000_BYTES[..])
                 .expect("block test vector should deserialize");
         let mut block_header = block.header;
+        let block_height = block.coinbase_height().unwrap();
 
         // Service variables
         let state_service = zebra_state::in_memory_headersonly::init();
@@ -552,7 +557,7 @@ mod tests {
 
         // This should be ok
         ready_verifier_service
-            .call(Arc::new(block_header.clone()))
+            .call((Arc::new(block_header.clone()), block_height))
             .await
             .map_err(|e| eyre!(e))?;
 
@@ -563,7 +568,7 @@ mod tests {
 
         // Error: invalid equihash solution for BlockHeader
         ready_verifier_service
-            .call(Arc::new(block_header.clone()))
+            .call((Arc::new(block_header.clone()), block_height))
             .await
             .expect_err("expected the equihash solution to be invalid");
 
