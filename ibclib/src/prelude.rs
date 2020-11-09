@@ -18,10 +18,11 @@ pub(super) trait IBCRequest<Hash, Height> {
     type HeaderResponse;
     type HashResponse;
     type HeightResponse;
+    type HashHeightResponse;
 //  fn get(&self, query: impl Into<IBCQuery<Hash, Height>>) -> Result<Option<Arc<BlockORHeader>>, Error>;
 //  fn get_tip(&self) -> Result<Option<Arc<Hash>>, Error>;
     fn get(&self, query: impl Into<IBCQuery<Hash, Height>>) -> Self::HeaderResponse;
-    fn get_tip(&self) -> Self::HashResponse;
+    fn get_tip(&self) -> Self::HashHeightResponse;
 }
 
 #[derive(Default, Clone)]

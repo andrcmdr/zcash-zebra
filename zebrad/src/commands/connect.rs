@@ -17,7 +17,7 @@ use zebra_chain::{
     types::BlockHeight,
 };
 
-use zebra_state::QueryType;
+// use zebra_state::QueryType;
 
 // genesis
 static GENESIS: BlockHeaderHash = BlockHeaderHash([

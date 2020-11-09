@@ -14,7 +14,7 @@ use zebra_chain::{
 use zebra_network::{self as zn, RetryLimit};
 use zebra_state::{self as zs};
 
-use zebra_state::QueryType;
+// use zebra_state::QueryType;
 
 pub struct Syncer<ZN, ZS, ZV>
 where
@@ -51,9 +51,9 @@ impl<ZN, ZS, ZV> Syncer<ZN, ZS, ZV>
 where
     ZN: Service<zn::Request, Response = zn::Response, Error = Error> + Send + Clone + 'static,
     ZN::Future: Send,
-    ZS: Service<zs::RequestBlock<T>, Response = zs::Response, Error = Error> + Send + Clone + 'static,
+    ZS: Service<zs::RequestBlock, Response = zs::Response, Error = Error> + Send + Clone + 'static,
     ZS::Future: Send,
-    ZV: Service<Arc<Block>, Response = BlockHeaderHash, Error = Error> + Send + Clone + 'static,
+    ZV: Service<Arc<Block>, Response = (BlockHeaderHash, BlockHeight), Error = Error> + Send + Clone + 'static,
     ZV::Future: Send,
 {
     #[instrument(skip(self))]

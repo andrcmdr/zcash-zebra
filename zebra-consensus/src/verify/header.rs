@@ -24,7 +24,7 @@ use zebra_chain::{
     types::BlockHeight,
 };
 
-use zebra_state::QueryType;
+// use zebra_state::QueryType;
 
 /// Check if `block_header_time` is less than or equal to
 /// 2 hours in the future, according to the node's local clock (`now`).
@@ -75,15 +75,9 @@ pub(crate) fn coinbase_check(block: &Block) -> Result<(), Error> {
 }
 */
 
-use std::marker::PhantomData as RequestType;
-
-struct BlockHeaderVerifier<S, T>
-where 
-    T: Into<QueryType>,
-{
+struct BlockHeaderVerifier<S> {
     /// The underlying `ZebraState`, possibly wrapped in other services.
     state_service: S,
-    request_type: RequestType<T>,
 }
 
 /// The error type for the BlockVerifier Service.
@@ -93,14 +87,13 @@ type Error = Box<dyn error::Error + Send + Sync + 'static>;
 /// The BlockHeaderVerifier service implementation.
 ///
 /// After verification, blocks are added to the underlying state service.
-impl<S, T> Service<Arc<BlockHeader>> for BlockHeaderVerifier<S, T>
+impl<S> Service<Arc<BlockHeader>> for BlockHeaderVerifier<S>
 where
-    S: Service<zebra_state::RequestBlockHeader<T>, Response = zebra_state::Response, Error = Error>
+    S: Service<zebra_state::RequestBlockHeader, Response = zebra_state::Response, Error = Error>
         + Send
         + Clone
         + 'static,
     S::Future: Send + 'static,
-    T: Into<QueryType> + Send + 'static,
 {
     type Response = (BlockHeaderHash, BlockHeight);
     type Error = Error;
@@ -167,9 +160,8 @@ where
 /// This function should be called only once for a particular state service (and
 /// the result be shared) rather than constructing multiple verification services
 /// backed by the same state layer.
-pub fn init<S, T>(
+pub fn init<S>(
     state_service: S,
-    request_type: RequestType<T>,
 ) -> impl Service<
     Arc<BlockHeader>,
     Response = (BlockHeaderHash, BlockHeight),
@@ -179,14 +171,13 @@ pub fn init<S, T>(
   + Clone
   + 'static
 where
-    S: Service<zebra_state::RequestBlockHeader<T>, Response = zebra_state::Response, Error = Error>
+    S: Service<zebra_state::RequestBlockHeader, Response = zebra_state::Response, Error = Error>
         + Send
         + Clone
         + 'static,
     S::Future: Send + 'static,
-    T: Into<QueryType> + Send + 'static,
 {
-    Buffer::new(BlockHeaderVerifier { state_service, request_type }, 1)
+    Buffer::new(BlockHeaderVerifier { state_service }, 1)
 }
 
 #[cfg(test)]
@@ -350,7 +341,7 @@ mod tests {
         let hash: BlockHeaderHash = (&block_header).into();
 
         let state_service = zebra_state::in_memory_headersonly::init();
-        let mut block_header_verifier = super::init(state_service.clone(), RequestType);
+        let mut block_header_verifier = super::init(state_service.clone());
 
         /// SPANDOC: Make sure the verifier service is ready
         let ready_verifier_service = block_header_verifier.ready_and().await.map_err(|e| eyre!(e))?;
@@ -380,7 +371,7 @@ mod tests {
         let hash: BlockHeaderHash = (&block_header).into();
 
         let state_service = zebra_state::in_memory_headersonly::init();
-        let mut block_header_verifier = super::init(state_service.clone(), RequestType);
+        let mut block_header_verifier = super::init(state_service.clone());
 
         /// SPANDOC: Make sure the verifier service is ready
         let ready_verifier_service = block_header_verifier.ready_and().await.map_err(|e| eyre!(e))?;
@@ -396,7 +387,7 @@ mod tests {
         let ready_state_service = state_service.ready_and().await.map_err(|e| eyre!(e))?;
         /// SPANDOC: Make sure the block header was added to the state
         let state_response = ready_state_service
-            .call(zebra_state::RequestBlockHeader::GetBlockHeader { query: hash })
+            .call(zebra_state::RequestBlockHeader::GetBlockHeader { query: zebra_state::QueryType::ByHash(hash) })
             .await
             .map_err(|e| eyre!(e))?;
 
@@ -427,7 +418,7 @@ mod tests {
         let hash: BlockHeaderHash = (&block_header).into();
 
         let state_service = zebra_state::in_memory_headersonly::init();
-        let mut block_header_verifier = super::init(state_service.clone(), RequestType);
+        let mut block_header_verifier = super::init(state_service.clone());
 
         /// SPANDOC: Make sure the verifier service is ready (1/2)
         let ready_verifier_service = block_header_verifier.ready_and().await.map_err(|e| eyre!(e))?;
@@ -443,7 +434,7 @@ mod tests {
         let ready_state_service = state_service.ready_and().await.map_err(|e| eyre!(e))?;
         /// SPANDOC: Make sure the block was added to the state
         let state_response = ready_state_service
-            .call(zebra_state::RequestBlockHeader::GetBlockHeader { query: hash })
+            .call(zebra_state::RequestBlockHeader::GetBlockHeader { query: zebra_state::QueryType::ByHash(hash) })
             .await
             .map_err(|e| eyre!(e))?;
 
@@ -470,7 +461,7 @@ mod tests {
         let ready_state_service = state_service.ready_and().await.map_err(|e| eyre!(e))?;
         /// SPANDOC: But the state should still return the original block we added
         let state_response = ready_state_service
-            .call(zebra_state::RequestBlockHeader::GetBlockHeader { query: hash })
+            .call(zebra_state::RequestBlockHeader::GetBlockHeader { query: zebra_state::QueryType::ByHash(hash) })
             .await
             .map_err(|e| eyre!(e))?;
 
@@ -500,7 +491,7 @@ mod tests {
         let mut block_header = block.header;
 
         let mut state_service = zebra_state::in_memory_headersonly::init();
-        let mut block_header_verifier = super::init(state_service.clone(), RequestType);
+        let mut block_header_verifier = super::init(state_service.clone());
 
         // Modify the block's time in block header
         // Changing the block header also invalidates the header hashes, but
@@ -530,7 +521,7 @@ mod tests {
         // TODO(teor || jlusby): check error kind
         ready_state_service
             .call(zebra_state::RequestBlockHeader::GetBlockHeader {
-                query: hash,
+                query: zebra_state::QueryType::ByHash(hash)
             })
             .await
             .unwrap_err();
@@ -539,12 +530,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn header_solution_test<T: Into<QueryType> + Send + Sync + Clone + 'static>() -> Result<(), Report> {
-        header_solution::<T>().await
+    async fn header_solution_test() -> Result<(), Report> {
+        header_solution().await
     }
 
     #[spandoc::spandoc]
-    async fn header_solution<T: Into<QueryType> + Send + Sync + Clone + 'static>() -> Result<(), Report> {
+    async fn header_solution() -> Result<(), Report> {
         zebra_test::init();
 
         // Get a valid block
@@ -554,8 +545,8 @@ mod tests {
         let mut block_header = block.header;
 
         // Service variables
-        let state_service = zebra_state::in_memory_headersonly::init::<T>();
-        let mut block_header_verifier = super::init(state_service.clone(), RequestType);
+        let state_service = zebra_state::in_memory_headersonly::init();
+        let mut block_header_verifier = super::init(state_service.clone());
 
         let ready_verifier_service = block_header_verifier.ready_and().await.map_err(|e| eyre!(e))?;
 
@@ -581,13 +572,13 @@ mod tests {
 
     #[tokio::test]
     #[spandoc::spandoc]
-    async fn coinbase<T: Into<QueryType> + Send + Sync + Clone + 'static>() -> Result<(), Report> {
+    async fn coinbase() -> Result<(), Report> {
         zebra_test::init();
 
         // Service variables
-        let state_service = zebra_state::in_memory::init::<T>();
-//      let mut block_verifier = super::init(state_service.clone(), RequestType);
-        let mut block_verifier = crate::verify::block::init(state_service.clone(), RequestType);
+        let state_service = zebra_state::in_memory::init();
+//      let mut block_verifier = super::init(state_service.clone());
+        let mut block_verifier = crate::verify::block::init(state_service.clone());
 
         // Get a header of a block
         let header =

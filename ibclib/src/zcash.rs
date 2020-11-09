@@ -11,6 +11,12 @@ use zebra_chain::{
     },
     types::BlockHeight,
 };
+use zebra_state::{
+    QueryType,
+//  RequestBlock,
+    RequestBlockHeader,
+    Response,
+};
 use std::{
     error,
     future::Future,
@@ -25,7 +31,7 @@ type Error = Box<dyn error::Error + Send + Sync + 'static>;
 use crate::prelude::*;
 
 impl dyn IBCRunnable {
-    pub fn run(&self) {
+    fn run(&self) {
         //  let arg = String::from("-c ./zebrad.toml start-headers-only");
         //  zebrad::prelude::Application::run(&APPLICATION, vec![arg].into_iter());
             zebrad::prelude::Application::run(&APPLICATION, vec!["-c".to_string(), "./zebrad.toml".to_string(), "start-headers-only".to_string()].into_iter());
@@ -51,17 +57,18 @@ impl IBCRequest<BlockHeaderHash, BlockHeight> for IBCItems<BlockHeaderHash, Bloc
     type HeaderResponse = Pin<Box<dyn Future<Output = Result<Option<Arc<BlockHeader>>, Error>> + Send + 'static>>;
     type HashResponse = Pin<Box<dyn Future<Output = Result<Option<BlockHeaderHash>, Error>> + Send + 'static>>;
     type HeightResponse = Pin<Box<dyn Future<Output = Result<Option<BlockHeight>, Error>> + Send + 'static>>;
+    type HashHeightResponse = Pin<Box<dyn Future<Output = Result<Option<(BlockHeaderHash, BlockHeight)>, Error>> + Send + 'static>>;
 
     fn get(&self, query: impl Into<IBCQuery<BlockHeaderHash, BlockHeight>>) -> Self::HeaderResponse {
         let state = zebra_state::on_disk_headersonly::init(zebra_state::Config::default());
         let value = match query.into() {
             IBCQuery::ByHash(hash) => {
-                let state = state.clone();
+                let mut state = state.clone();
                 async move {
                     let get_block_header = state
                     .ready_and()
                     .await?
-                    .call(zebra_state::RequestBlockHeader::GetBlockHeader { hash });
+                    .call(RequestBlockHeader::GetBlockHeader { query: QueryType::ByHash(hash) });
 
                     tracing::info!("Block header with hash {:?} requested!", hash);
 
@@ -72,12 +79,12 @@ impl IBCRequest<BlockHeaderHash, BlockHeight> for IBCItems<BlockHeaderHash, Bloc
                 }.boxed()
             }
             IBCQuery::ByHeight(height) => {
-                let state = state.clone();
+                let mut state = state.clone();
                 async move {
                     let get_block_header = state
                     .ready_and()
                     .await?
-                    .call(zebra_state::RequestBlockHeader::GetBlockHeader { height });
+                    .call(RequestBlockHeader::GetBlockHeader { query: QueryType::ByHeight(height) });
 
                     tracing::info!("Block header with height {:?} requested!", height);
 
@@ -91,19 +98,19 @@ impl IBCRequest<BlockHeaderHash, BlockHeight> for IBCItems<BlockHeaderHash, Bloc
         value
     }
 
-    fn get_tip(&self) -> Self::HashResponse {
+    fn get_tip(&self) -> Self::HashHeightResponse {
         let state = zebra_state::on_disk_headersonly::init(zebra_state::Config::default());
-        let state = state.clone();
+        let mut state = state.clone();
         async move {
             let get_tip = state
             .ready_and()
             .await?
-            .call(zebra_state::RequestBlockHeader::GetTip);
+            .call(RequestBlockHeader::GetTip);
 
             tracing::info!("Tip requested!");
 
             match get_tip.await? {
-                zebra_state::Response::Tip { hash, height } => Ok(Some((hash, height))),
+                Response::Tip { hash, height } => Ok(Some((hash, height))),
                 _ => Err("Some error in requesting block header that is the tip of the current chain".into()),
             }
         }.boxed()
