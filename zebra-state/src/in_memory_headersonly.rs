@@ -49,22 +49,36 @@ impl Service<RequestBlockHeader> for InMemoryState<BlockHeader> {
                 async move { result }.boxed()
             }
             RequestBlockHeader::GetBlockHeader { query } => {
-                let result = self
-                    .index
-                    .get(query).unwrap() //? .unwrap_or(default: T) .expect("GetBlockHeader - block header could not be found")
-                    .map(|block_header| Response::BlockHeader { block_header })
-                    .ok_or_else(|| "GetBlockHeader - block header could not be found".into());
-
-                async move { result }.boxed()
+                let storage = self.index.clone();
+                async move {
+                    let block_header = storage.get(query)?; //? .unwrap() .unwrap_or(default: T) .expect("GetBlockHeader - block header could not be found")
+                    let hash: BlockHeaderHash = block_header.clone().unwrap().as_ref().into();
+                    let height = storage.get_height(hash)?.unwrap();
+                    block_header
+                        .map(|block_header| Response::BlockHeader { block_header: block_header, block_height: height })
+                        .ok_or_else(|| "GetBlockHeader - block header could not be found".into())
+                }
+                .boxed()
+            }
+            RequestBlockHeader::GetBlockHeight { hash } => {
+                let storage = self.index.clone();
+                async move {
+                    storage
+                        .get_height(hash)? //? .unwrap() .unwrap_or(default: T) .expect("GetBlockHeight - block height could not be found")
+                        .map(|block_height| Response::BlockHeight { block_height })
+                        .ok_or_else(|| "GetBlockHeight - block height could not be found".into())
+                }
+                .boxed()
             }
             RequestBlockHeader::GetTip => {
-                let result = self
-                    .index
-                    .get_tip().unwrap() //? .unwrap_or(default: T) .expect("GetTip - zebra-state contains no block headers")
-                    .map(|(_header, hash, height)| Response::Tip { hash, height })
-                    .ok_or_else(|| "GetTip - zebra-state contains no block headers".into());
-
-                async move { result }.boxed()
+                let storage = self.index.clone();
+                async move {
+                    storage
+                        .get_tip()? //? .unwrap() .unwrap_or(default: T) .expect("GetTip - latest block header, which is the tip of the current best chain, couldn't be found")
+                        .map(|(_header, hash, height)| Response::Tip { hash, height })
+                        .ok_or_else(|| "GetTip - latest block header, which is the tip of the current best chain, couldn't be found".into())
+                }
+                .boxed()
             }
             RequestBlockHeader::GetDepth { hash } => {
                 let storage = self.index.clone();
@@ -76,12 +90,12 @@ impl Service<RequestBlockHeader> for InMemoryState<BlockHeader> {
 
                     let block_header_height = storage
                         .get_height(hash)?
-                        .expect("block header must be present if contains() returned true");
+                        .expect("GetDepth - block header must be present if contains() returned true");
 
                     let tip = storage
                         .get_tip()?
                         .map(|(_header, _hash, height)| height)
-                        .expect("storage must have a tip if it contains() the previous block header");
+                        .expect("GetDepth - storage must have a tip if it contains() the previous block header");
 
                     let depth = tip.0 - block_header_height.0;
 

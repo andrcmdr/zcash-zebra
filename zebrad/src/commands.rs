@@ -39,7 +39,7 @@ pub enum ZebradCmd {
     #[options(help = "testing stub for dumping network messages about blocks requests")]
     Connect(ConnectCmd),
 
-    /// The `connectheadersonly` subcommand
+    /// The `connect-headers-only` subcommand
     #[options(help = "testing stub for dumping network messages about block headers requests")]
     ConnectHeadersOnly(ConnectHeadersOnlyCmd),
 
@@ -59,7 +59,7 @@ pub enum ZebradCmd {
     #[options(help = "start the application in blocks sync mode")]
     Start(StartCmd),
 
-    /// The `startheadersonly` subcommand
+    /// The `start-headers-only` subcommand
     #[options(help = "start the application in block headers sync mode")]
     StartHeadersOnly(StartHeadersOnlyCmd),
 

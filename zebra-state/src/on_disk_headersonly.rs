@@ -172,16 +172,32 @@ impl Service<RequestBlockHeader> for SledState {
         match req {
             RequestBlockHeader::AddBlockHeader { block_header, block_height } => {
                 let mut storage = self.clone();
-
-                async move { storage.insert(block_header, block_height).map(|(hash, height)| Response::Added { hash, height }) }.boxed()
+                async move {
+                    storage
+                        .insert(block_header, block_height)
+                        .map(|(hash, height)| Response::Added { hash, height })
+                }
+                .boxed()
             }
             RequestBlockHeader::GetBlockHeader { query } => {
                 let storage = self.clone();
                 async move {
+                    let block_header = storage.get(query)?;
+                    let hash: BlockHeaderHash = block_header.clone().unwrap().as_ref().into();
+                    let height = storage.get_height(hash)?.unwrap();
+                    block_header
+                        .map(|block_header| Response::BlockHeader { block_header: block_header, block_height: height })
+                        .ok_or_else(|| "GetBlockHeader - block header could not be found".into())
+                }
+                .boxed()
+            }
+            RequestBlockHeader::GetBlockHeight { hash } => {
+                let storage = self.clone();
+                async move {
                     storage
-                        .get(query)?
-                        .map(|block_header| Response::BlockHeader { block_header })
-                        .ok_or_else(|| "block header could not be found".into())
+                        .get_height(hash)?
+                        .map(|block_height| Response::BlockHeight { block_height })
+                        .ok_or_else(|| "GetBlockHeight - block height could not be found".into())
                 }
                 .boxed()
             }
@@ -191,7 +207,7 @@ impl Service<RequestBlockHeader> for SledState {
                     storage
                         .get_tip()?
                         .map(|(_header, hash, height)| Response::Tip { hash, height })
-                        .ok_or_else(|| "zebra-state contains no block headers".into())
+                        .ok_or_else(|| "GetTip - latest block header, which is the tip of the current best chain, couldn't be found".into())
                 }
                 .boxed()
             }
@@ -205,12 +221,12 @@ impl Service<RequestBlockHeader> for SledState {
 
                     let block_header_height = storage
                         .get_height(hash)?
-                        .expect("block header must be present if contains() returned true");
+                        .expect("GetDepth - block header must be present if contains() returned true");
 
                     let tip = storage
                         .get_tip()?
                         .map(|(_header, _hash, height)| height)
-                        .expect("storage must have a tip if it contains() the previous block header");
+                        .expect("GetDepth - storage must have a tip if it contains() the previous block header");
 
                     let depth = tip.0 - block_header_height.0;
 

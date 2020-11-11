@@ -49,23 +49,36 @@ impl Service<RequestBlock> for InMemoryState<Block> {
                 async move { result }.boxed()
             }
             RequestBlock::GetBlock { query } => {
-                let result = self
-                    .index
-                    .get(query).unwrap() //? .unwrap_or(default: T) .expect("GetBlock - block could not be found")
-                    .map(|block| Response::Block { block })
-                    .ok_or_else(|| "GetBlock - block could not be found".into());
-
-                async move { result }.boxed()
+                let storage = self.index.clone();
+                async move {
+                    storage
+                        .get(query)? //? .unwrap() .unwrap_or(default: T) .expect("GetBlock - block could not be found")
+                        .map(|block| Response::Block { block })
+                        .ok_or_else(|| "GetBlock - block could not be found".into())
+                }
+                .boxed()
+            }
+            RequestBlock::GetBlockHeight { hash } => {
+                let storage = self.index.clone();
+                async move {
+                    storage
+                        .get(hash)? //? .unwrap() .unwrap_or(default: T) .expect("GetBlockHeight - block height could not be found")
+                        .map(|block| block.coinbase_height().unwrap())
+                        .map(|block_height| Response::BlockHeight { block_height })
+                        .ok_or_else(|| "GetBlockHeight - block height could not be found".into())
+                }
+                .boxed()
             }
             RequestBlock::GetTip => {
-                let result = self
-                    .index
-                    .get_tip().unwrap() //? .unwrap_or(default: T) .expect("GetTip - zebra-state contains no blocks")
-                    .map(|block| (block.as_ref().into(), block.coinbase_height().unwrap()))
-                    .map(|(hash, height)| Response::Tip { hash, height })
-                    .ok_or_else(|| "GetTip - zebra-state contains no blocks".into());
-
-                async move { result }.boxed()
+                let storage = self.index.clone();
+                async move {
+                    storage
+                        .get_tip()? //? .unwrap() .unwrap_or(default: T) .expect("GetTip - latest block, which is the tip of the current best chain, couldn't be found")
+                        .map(|block| (block.as_ref().into(), block.coinbase_height().unwrap()))
+                        .map(|(hash, height)| Response::Tip { hash, height })
+                        .ok_or_else(|| "GetTip - latest block, which is the tip of the current best chain, couldn't be found".into())
+                }
+                .boxed()
             }
             RequestBlock::GetDepth { hash } => {
                 let storage = self.index.clone();
@@ -77,11 +90,11 @@ impl Service<RequestBlock> for InMemoryState<Block> {
 
                     let block = storage
                         .get(hash)?
-                        .expect("block must be present if contains() returned true");
+                        .expect("GetDepth - block must be present if contains() returned true");
 
                     let tip = storage
                         .get_tip()?
-                        .expect("storage must have a tip if it contains() the previous block");
+                        .expect("GetDepth - storage must have a tip if it contains() the previous block");
 
                     let depth =
                         tip.coinbase_height().unwrap().0 - block.coinbase_height().unwrap().0;

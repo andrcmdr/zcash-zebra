@@ -70,6 +70,11 @@ pub enum RequestBlock {
         /// The hash or height used to identify the block
         query: QueryType,
     },
+    /// Get a block height from the zebra-state
+    GetBlockHeight{
+        /// The hash used to identify the block
+        hash: BlockHeaderHash,
+    },
     /// Get the block that is the tip of the current chain
     GetTip,
     /// Ask the state if the given hash is part of the current best chain
@@ -93,6 +98,11 @@ pub enum RequestBlockHeader {
     GetBlockHeader {
         /// The hash or height used to identify the block header
         query: QueryType,
+    },
+    /// Get a block height from the zebra-state
+    GetBlockHeight{
+        /// The hash used to identify the block header
+        hash: BlockHeaderHash,
     },
     /// Get the block that is the tip of the current chain
     GetTip,
@@ -123,6 +133,13 @@ pub enum Response {
     BlockHeader {
         /// The block header that was requested
         block_header: Arc<BlockHeader>,
+        /// The block height that was requested
+        block_height: BlockHeight,
+    },
+    /// The response to a `GetBlockHeight` request by hash
+    BlockHeight {
+        /// The block height that was requested
+        block_height: BlockHeight,
     },
     /// The response to a `GetTip` request
     Tip {

@@ -13,14 +13,16 @@ static ADD_BLOCK_TRANSCRIPT: Lazy<Vec<(RequestBlock, Response)>> = Lazy::new(|| 
             .unwrap()
             .into();
     let hash = block.as_ref().into();
+    let height = block.coinbase_height().unwrap();
     vec![
         (
             RequestBlock::AddBlock {
                 block: block.clone(),
             },
-            Response::Added { hash },
+            Response::Added { hash: hash, height: height },
         ),
-        (RequestBlock::GetBlock { hash }, Response::Block { block }),
+        (RequestBlock::GetBlock { query: QueryType::ByHash(hash) }, Response::Block { block: block.clone() }),
+        (RequestBlock::GetBlock { query: QueryType::ByHeight(height) }, Response::Block { block: block.clone() }),
     ]
 });
 
@@ -33,18 +35,20 @@ static GET_TIP_TRANSCRIPT: Lazy<Vec<(RequestBlock, Response)>> = Lazy::new(|| {
         .unwrap()
         .into();
     let hash0 = block0.as_ref().into();
+    let height0 = block0.coinbase_height().unwrap();
     let hash1 = block1.as_ref().into();
+    let height1 = block1.coinbase_height().unwrap();
     vec![
         // Insert higher block first, lower block second
         (
             RequestBlock::AddBlock { block: block1 },
-            Response::Added { hash: hash1 },
+            Response::Added { hash: hash1, height: height1 },
         ),
         (
             RequestBlock::AddBlock { block: block0 },
-            Response::Added { hash: hash0 },
+            Response::Added { hash: hash0, height: height0 },
         ),
-        (RequestBlock::GetTip, Response::Tip { hash: hash1 }),
+        (RequestBlock::GetTip, Response::Tip { hash: hash1, height: height1 }),
     ]
 });
 

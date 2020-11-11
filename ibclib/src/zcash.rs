@@ -57,9 +57,10 @@ impl IBCRequest<BlockHeaderHash, BlockHeight> for IBCItems<BlockHeaderHash, Bloc
     type HeaderResponse = Pin<Box<dyn Future<Output = Result<Option<Arc<BlockHeader>>, Error>> + Send + 'static>>;
     type HashResponse = Pin<Box<dyn Future<Output = Result<Option<BlockHeaderHash>, Error>> + Send + 'static>>;
     type HeightResponse = Pin<Box<dyn Future<Output = Result<Option<BlockHeight>, Error>> + Send + 'static>>;
+    type HeaderHeightResponse = Pin<Box<dyn Future<Output = Result<Option<(Arc<BlockHeader>, BlockHeight)>, Error>> + Send + 'static>>;
     type HashHeightResponse = Pin<Box<dyn Future<Output = Result<Option<(BlockHeaderHash, BlockHeight)>, Error>> + Send + 'static>>;
 
-    fn get(&self, query: impl Into<IBCQuery<BlockHeaderHash, BlockHeight>>) -> Self::HeaderResponse {
+    fn get(&self, query: impl Into<IBCQuery<BlockHeaderHash, BlockHeight>>) -> Self::HeaderHeightResponse {
         let state = zebra_state::on_disk_headersonly::init(zebra_state::Config::default());
         let value = match query.into() {
             IBCQuery::ByHash(hash) => {
@@ -73,7 +74,7 @@ impl IBCRequest<BlockHeaderHash, BlockHeight> for IBCItems<BlockHeaderHash, Bloc
                     tracing::info!("Block header with hash {:?} requested!", hash);
 
                     match get_block_header.await? {
-                        zebra_state::Response::BlockHeader { block_header } => Ok(Some(block_header)),
+                        zebra_state::Response::BlockHeader { block_header, block_height } => Ok(Some((block_header, block_height))),
                         _ => Err("block header couldn't be found - either still syncing, or out of range".into()),
                     }
                 }.boxed()
@@ -89,7 +90,7 @@ impl IBCRequest<BlockHeaderHash, BlockHeight> for IBCItems<BlockHeaderHash, Bloc
                     tracing::info!("Block header with height {:?} requested!", height);
 
                     match get_block_header.await? {
-                        zebra_state::Response::BlockHeader { block_header } => Ok(Some(block_header)),
+                        zebra_state::Response::BlockHeader { block_header, block_height } => Ok(Some((block_header, block_height))),
                         _ => Err("block header couldn't be found - either still syncing, or out of range".into()),
                     }
                 }.boxed()

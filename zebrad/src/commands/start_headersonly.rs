@@ -1,4 +1,4 @@
-//! `startheadersonly` subcommand - entry point for starting a zebra node
+//! `start-headers-only` subcommand - entry point for starting a zebra node
 //!
 //!  ## Application Structure
 //!
@@ -36,7 +36,7 @@ const GENESIS: BlockHeaderHash = BlockHeaderHash([
     29, 170, 27, 145, 113, 132, 236, 232, 15, 4, 0,
 ]);
 
-/// `startheadersonly` subcommand
+/// `start-headers-only` subcommand
 #[derive(Command, Debug, Options)]
 pub struct StartHeadersOnlyCmd {
     /// Filter strings

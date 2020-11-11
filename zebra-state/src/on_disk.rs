@@ -118,8 +118,12 @@ impl Service<RequestBlock> for SledState {
         match req {
             RequestBlock::AddBlock { block } => {
                 let mut storage = self.clone();
-
-                async move { storage.insert(block).map(|(hash, height)| Response::Added { hash, height }) }.boxed()
+                async move {
+                    storage
+                        .insert(block)
+                        .map(|(hash, height)| Response::Added { hash, height })
+                }
+                .boxed()
             }
             RequestBlock::GetBlock { query } => {
                 let storage = self.clone();
@@ -127,7 +131,18 @@ impl Service<RequestBlock> for SledState {
                     storage
                         .get(query)?
                         .map(|block| Response::Block { block })
-                        .ok_or_else(|| "block could not be found".into())
+                        .ok_or_else(|| "GetBlock - block could not be found".into())
+                }
+                .boxed()
+            }
+            RequestBlock::GetBlockHeight { hash } => {
+                let storage = self.clone();
+                async move {
+                    storage
+                        .get(hash)?
+                        .map(|block| block.coinbase_height().unwrap())
+                        .map(|block_height| Response::BlockHeight { block_height })
+                        .ok_or_else(|| "GetBlockHeight - block height could not be found".into())
                 }
                 .boxed()
             }
@@ -138,7 +153,7 @@ impl Service<RequestBlock> for SledState {
                         .get_tip()?
                         .map(|block| (block.as_ref().into(), block.coinbase_height().unwrap()))
                         .map(|(hash, height)| Response::Tip { hash, height })
-                        .ok_or_else(|| "zebra-state contains no blocks".into())
+                        .ok_or_else(|| "GetTip - latest block, which is the tip of the current best chain, couldn't be found".into())
                 }
                 .boxed()
             }
@@ -152,11 +167,11 @@ impl Service<RequestBlock> for SledState {
 
                     let block = storage
                         .get(hash)?
-                        .expect("block must be present if contains() returned true");
+                        .expect("GetDepth - block must be present if contains() returned true");
 
                     let tip = storage
                         .get_tip()?
-                        .expect("storage must have a tip if it contains() the previous block");
+                        .expect("GetDepth - storage must have a tip if it contains() the previous block");
 
                     let depth =
                         tip.coinbase_height().unwrap().0 - block.coinbase_height().unwrap().0;

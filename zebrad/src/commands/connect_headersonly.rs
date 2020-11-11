@@ -1,4 +1,4 @@
-//! `connectheadersonly` subcommand - test stub for talking to zcashd
+//! `connect-headers-only` subcommand - test stub for talking to zcashd
 
 use crate::{components::tokio::TokioComponent, prelude::*};
 use abscissa_core::{Command, Options, Runnable};
@@ -7,13 +7,17 @@ use futures::{
 //  prelude::*,
     stream::{FuturesUnordered, StreamExt},
 };
-use std::collections::HashSet;
+use std::sync::Arc;
+use std::collections::BTreeSet;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
 
 use zebra_chain::{
-    block::BlockHeaderHash,
-//  block::{Block, BlockHeader, BlockHeaderHash},
+    block::{
+//      Block,
+        BlockHeader,
+        BlockHeaderHash
+    },
     types::BlockHeight,
 };
 
@@ -25,7 +29,7 @@ static GENESIS: BlockHeaderHash = BlockHeaderHash([
     29, 170, 27, 145, 113, 132, 236, 232, 15, 4, 0,
 ]);
 
-/// `connectheadersonly` subcommand
+/// `connect-headers-only` subcommand
 #[derive(Command, Debug, Options)]
 pub struct ConnectHeadersOnlyCmd {
     /// The address of the node to connect to.
@@ -94,18 +98,17 @@ impl ConnectHeadersOnlyCmd {
         let (peer_set, _address_book) = zebra_network::init(config, node).await;
         let retry_peer_set = tower::retry::Retry::new(zebra_network::RetryErrors, peer_set.clone());
 
-     // handling of block heights doesn't compatible with headers handling & didn't applicable for headers handling
-        let mut downloaded_block_header_hashes = HashSet::<BlockHeaderHash>::new();
-        downloaded_block_header_hashes.insert(GENESIS);
+        let mut downloaded_block_heights = BTreeSet::<BlockHeight>::new();
+        downloaded_block_heights.insert(BlockHeight(0));
 
         let mut connect = ConnectHeadersOnly {
             retry_peer_set,
             peer_set,
             state,
             tip: GENESIS,
-            block_header_requests: FuturesUnordered::new(),
-            requested_block_header_hashes: 0,
-            downloaded_block_header_hashes,
+            block_requests: FuturesUnordered::new(),
+            requested_block_heights: 0,
+            downloaded_block_heights,
         };
 
         connect.connect().await
@@ -122,9 +125,9 @@ where
     peer_set: ZN,
     state: ZS,
     tip: BlockHeaderHash,
-    block_header_requests: FuturesUnordered<ZN::Future>,
-    requested_block_header_hashes: usize,
-    downloaded_block_header_hashes: HashSet<BlockHeaderHash>,
+    block_requests: FuturesUnordered<ZN::Future>,
+    requested_block_heights: usize,
+    downloaded_block_heights: BTreeSet<BlockHeight>,
 }
 
 impl<ZN, ZS> ConnectHeadersOnly<ZN, ZS>
@@ -143,15 +146,15 @@ where
     async fn connect(&mut self) -> Result<(), Report> {
         // TODO(jlusby): Replace with real state service
 
-//      while self.requested_block_header_hashes < 1_000_000 {
+//      while self.requested_block_heights < 1_000_000 {
         loop {
             let hashes = self.next_hashes().await?;
             self.tip = *hashes.last().unwrap();
 
             // Request the corresponding blocks in chunks
-            self.request_block_headers(hashes).await?;
+            self.request_blocks(hashes).await?;
 
-            // Allow at most 500 block headers requests in flight.
+            // Allow at most 500 block requests in flight.
             self.drain_requests(500).await?;
         }
 
@@ -184,49 +187,51 @@ where
              /* let mut latest_block_header_hash = String::from("");
                 for byte in self.downloaded_block_header_hashes.iter().last().unwrap().0.iter() {
                     latest_block_header_hash.push_str(format!("{:02x}", byte).as_str())
-                }; */
-                let latest_block_header_hash = hex::encode(self.downloaded_block_header_hashes.iter().last().unwrap().0);
+                };
+                let latest_block_header_hash = hex::encode(self.downloaded_block_header_hashes.iter().last().unwrap().0); */
                 info!(
                     new_hashes = hashes.len(),
-                    requested = self.requested_block_header_hashes,
-                    in_flight = self.block_header_requests.len(),
-                    downloaded = self.downloaded_block_header_hashes.len(),
-                    highest = latest_block_header_hash.as_str(),
+                    requested = self.requested_block_heights,
+                    in_flight = self.block_requests.len(),
+                    downloaded = self.downloaded_block_heights.len(),
+                    highest = self.downloaded_block_heights.iter().next_back().unwrap().0,
                     "requested more hashes"
                 );
-                self.requested_block_header_hashes += hashes.len();
+                self.requested_block_heights += hashes.len();
                 hashes
             })
     }
 
-    async fn request_block_headers(&mut self, hashes: Vec<BlockHeaderHash>) -> Result<(), Report> {
+    async fn request_blocks(&mut self, hashes: Vec<BlockHeaderHash>) -> Result<(), Report> {
         for chunk in hashes.chunks(10usize) {
             let request = self.peer_set.ready_and().await.map_err(|e| eyre!(e))?.call(
                 zebra_network::Request::BlocksByHash(chunk.iter().cloned().collect()),
             );
 
-            self.block_header_requests.push(request);
+            self.block_requests.push(request);
         }
 
         Ok(())
     }
 
     async fn drain_requests(&mut self, request_goal: usize) -> Result<(), Report> {
-        while self.block_header_requests.len() > request_goal {
-            match self.block_header_requests.next().await {
-                Some(Ok(zebra_network::Response::BlockHeaders(block_headers))) => {
-                    for block_header in block_headers {
-                        let block_header_hash: BlockHeaderHash = block_header.as_ref().into();
-                        self.downloaded_block_header_hashes
-                     // didn't applicable for headers handling
-                     // .insert(block.coinbase_height().unwrap());
-                        .insert(block_header_hash);
-                        let block_height = BlockHeight(0);
+        while self.block_requests.len() > request_goal {
+            match self.block_requests.next().await {
+                Some(Ok(zebra_network::Response::Blocks(blocks))) => {
+                    for block in blocks {
+                        let header: Arc<BlockHeader> = block.header.into();
+                        let hash: BlockHeaderHash = block.as_ref().into();
+                        let _hash_str = hex::encode(&hash.0);
+                        let height = block.coinbase_height().unwrap();
+
+                        self.downloaded_block_heights
+                            .insert(height);
+
                         self.state
                             .ready_and()
                             .await
                             .map_err(|e| eyre!(e))?
-                            .call(zebra_state::RequestBlockHeader::AddBlockHeader { block_header, block_height })
+                            .call(zebra_state::RequestBlockHeader::AddBlockHeader { block_header: header, block_height: height })
                             .await
                             .map_err(|e| eyre!(e))?;
                     }
@@ -237,7 +242,6 @@ where
                 _ => continue,
             }
         }
-
         Ok(())
     }
 }

@@ -16,6 +16,9 @@ use zebra_state::{self as zs};
 
 // use zebra_state::QueryType;
 
+type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
+type NumReq = u32;
+
 pub struct Syncer<ZN, ZS, ZV>
 where
     ZN: Service<zn::Request>,
@@ -344,6 +347,3 @@ pub fn block_locator_heights(tip_height: BlockHeight) -> impl Iterator<Item = Bl
         .map(BlockHeight)
         .chain(iter::once(BlockHeight(0)))
 }
-
-type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
-type NumReq = u32;

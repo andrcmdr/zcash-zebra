@@ -7,13 +7,17 @@ use futures::{
 //  prelude::*,
     stream::{FuturesUnordered, StreamExt},
 };
+use std::sync::Arc;
 use std::collections::BTreeSet;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
 
 use zebra_chain::{
-    block::BlockHeaderHash,
-//  block::{Block, BlockHeader, BlockHeaderHash},
+    block::{
+//      Block,
+        BlockHeader,
+        BlockHeaderHash
+    },
     types::BlockHeight,
 };
 
@@ -210,8 +214,14 @@ where
             match self.block_requests.next().await {
                 Some(Ok(zebra_network::Response::Blocks(blocks))) => {
                     for block in blocks {
+                        let _header: Arc<BlockHeader> = block.header.into();
+                        let hash: BlockHeaderHash = block.as_ref().into();
+                        let _hash_str = hex::encode(&hash.0);
+                        let height = block.coinbase_height().unwrap();
+
                         self.downloaded_block_heights
-                            .insert(block.coinbase_height().unwrap());
+                            .insert(height);
+
                         self.state
                             .ready_and()
                             .await
@@ -227,7 +237,6 @@ where
                 _ => continue,
             }
         }
-
         Ok(())
     }
 }
