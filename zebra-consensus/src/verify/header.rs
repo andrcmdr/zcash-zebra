@@ -395,9 +395,11 @@ mod tests {
 
         if let zebra_state::Response::BlockHeader {
             block_header: returned_block_header,
+            block_height: returned_block_height,
         } = state_response
         {
             assert_eq!(Arc::new(block_header.clone()), returned_block_header);
+            assert_eq!(block_height, returned_block_height);
         } else {
             bail!("unexpected response kind: {:?}", state_response);
         }
@@ -443,9 +445,11 @@ mod tests {
 
         if let zebra_state::Response::BlockHeader {
             block_header: returned_block_header,
+            block_height: returned_block_height,
         } = state_response
         {
             assert_eq!(Arc::new(block_header.clone()), returned_block_header);
+            assert_eq!(block_height, returned_block_height);
         } else {
             bail!("unexpected response kind: {:?}", state_response);
         }
@@ -470,9 +474,11 @@ mod tests {
 
         if let zebra_state::Response::BlockHeader {
             block_header: returned_block_header,
+            block_height: returned_block_height,
         } = state_response
         {
             assert_eq!(Arc::new(block_header.clone()), returned_block_header);
+            assert_eq!(block_height, returned_block_height);
         } else {
             bail!("unexpected response kind: {:?}", state_response);
         }
