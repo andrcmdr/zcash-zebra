@@ -8,12 +8,12 @@ use std::{
 
 type Error = Box<dyn error::Error + Send + Sync + 'static>;
 
-pub(super) trait IBCRunnable {
+pub trait IBCRunnable {
     /// Run this `Runnable`
     fn run(&self);
 }
 
-pub(super) trait IBCRequest<Hash, Height> {
+pub trait IBCRequest<Hash, Height> {
     type BlockResponse;
     type HeaderResponse;
     type HashResponse;
@@ -26,13 +26,14 @@ pub(super) trait IBCRequest<Hash, Height> {
     fn get_tip(&self) -> Self::HashHeightResponse;
 }
 
-#[derive(Default, Clone)]
-pub(super) struct IBCItems<Hash, Height> {
+#[derive(Clone)]
+pub struct IBCItems<Hash, Height> {
     pub hash: Hash,
     pub height: Height,
 }
 
-pub(super) enum IBCQuery<Hash, Height> {
+#[derive(Clone)]
+pub enum IBCQuery<Hash, Height> {
     ByHash(Hash),
     ByHeight(Height),
 }

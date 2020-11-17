@@ -26,12 +26,37 @@ use std::{
 use futures_util::FutureExt;
 use tower::{Service, ServiceExt};
 
-type Error = Box<dyn error::Error + Send + Sync + 'static>;
-
 use crate::prelude::*;
 
-impl dyn IBCRunnable {
-    pub fn run(&self) {
+type Error = Box<dyn error::Error + Send + Sync + 'static>;
+
+impl Default for IBCItems<BlockHeaderHash, BlockHeight> {
+    fn default() -> Self {
+        Self {
+            hash: BlockHeaderHash([0u8; 32]),
+            height: BlockHeight(0),
+        }
+    }
+}
+
+struct Hash(BlockHeaderHash);
+
+impl Default for Hash {
+    fn default() -> Self {
+        Self(BlockHeaderHash([0u8; 32]))
+    }
+}
+
+struct Height(BlockHeight);
+
+impl Default for Height {
+    fn default() -> Self {
+        Self(BlockHeight(0))
+    }
+}
+
+impl IBCRunnable for IBCItems<BlockHeaderHash, BlockHeight> {
+    fn run(&self) {
         //  let arg = String::from("-c ./zebrad.toml start-headers-only");
         //  zebrad::prelude::Application::run(&APPLICATION, vec![arg].into_iter());
             zebrad::prelude::Application::run(&APPLICATION, vec!["-c".to_string(), "./zebrad.toml".to_string(), "start-headers-only".to_string()].into_iter());
