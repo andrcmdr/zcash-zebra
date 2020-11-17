@@ -26,6 +26,8 @@ pub trait Runnable {
 
 impl dyn Runnable {
     fn run(&self) {
+//      let context = IBCItems{ hash: BlockHeaderHash([0u8; 32]), height: BlockHeight(0) };
+//      IBCRunnable::run(&context);
         IBCRunnable::run(&IBCItems::default());
         async move {
             let _header_by_hash = IBCRequest::get(&IBCItems::default(), BlockHeaderHash([0u8; 32])).await;
