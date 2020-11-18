@@ -1,6 +1,11 @@
 //! Application-local prelude: conveniently describes types/traits/functions/macros
 //! which are generally/commonly useful and should be available everywhere.
 
+use std::path::{
+//  Path,
+    PathBuf,
+};
+
 use std::{
     error,
 //  sync::Arc,
@@ -8,9 +13,14 @@ use std::{
 
 type Error = Box<dyn error::Error + Send + Sync + 'static>;
 
+#[derive(Clone, Debug)]
+pub struct Config {
+    pub path: PathBuf,
+}
+
 pub trait IBCRunnable {
     /// Run this `Runnable`
-    fn run(&self);
+    fn run(&self, config_file_path: Option<PathBuf>);
 }
 
 pub trait IBCRequest<Hash, Height> {
