@@ -104,7 +104,9 @@ impl IBCRequest<BlockHeaderHash, BlockHeight> for IBCItems<BlockHeaderHash, Bloc
     type HashHeightResponse = Pin<Box<dyn Future<Output = Result<Option<(BlockHeaderHash, BlockHeight)>, Error>> + Send + 'static>>;
 
     fn get(&self, query: impl Into<IBCQuery<BlockHeaderHash, BlockHeight>>) -> Self::HeaderHeightResponse {
-        let state = zebra_state::on_disk_headersonly::init(zebra_state::Config::default());
+        let config = zebrad::prelude::app_config();
+        let state = zebra_state::on_disk_headersonly::init(config.state.clone());
+//      let state = zebra_state::on_disk_headersonly::init(zebra_state::Config::default());
         let value = match query.into() {
             IBCQuery::ByHash(hash) => {
                 let mut state = state.clone();
@@ -143,7 +145,9 @@ impl IBCRequest<BlockHeaderHash, BlockHeight> for IBCItems<BlockHeaderHash, Bloc
     }
 
     fn get_tip(&self) -> Self::HashHeightResponse {
-        let state = zebra_state::on_disk_headersonly::init(zebra_state::Config::default());
+        let config = zebrad::prelude::app_config();
+        let state = zebra_state::on_disk_headersonly::init(config.state.clone());
+//      let state = zebra_state::on_disk_headersonly::init(zebra_state::Config::default());
         let mut state = state.clone();
         async move {
             let get_tip = state
