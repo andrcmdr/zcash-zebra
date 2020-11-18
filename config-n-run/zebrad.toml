@@ -64,3 +64,8 @@ secs = 60
 
 [tracing]
 # filter = 'info'
+
+[state]
+cache_dir = './.zebra-state'
+memory_cache_bytes = 1073741824
+ephemeral = false

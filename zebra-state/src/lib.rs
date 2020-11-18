@@ -12,9 +12,11 @@
 #![doc(html_root_url = "https://doc.zebra.zfnd.org/zebra_state")]
 #![warn(missing_docs)]
 #![allow(clippy::try_err)]
-// #![allow(dead_code)]
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{
+//  Path,
+    PathBuf,
+};
 use std::sync::Arc;
 use zebra_chain::{
     block::{
@@ -30,28 +32,40 @@ pub mod on_disk_headersonly;
 pub mod in_memory;
 pub mod in_memory_headersonly;
 
-/// Configuration for networking code.
+/// Configuration for the state service.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, default)]
 pub struct Config {
-    /// The root directory for the state storage
-    pub path: PathBuf,
+    /// The root directory for storing cached data into the state storage.
+    pub cache_dir: PathBuf,
+    /// The maximum number of bytes to use caching data in memory.
+    pub memory_cache_bytes: u64,
+    /// Whether to use an ephemeral database.
+    /// Ephemeral databases are stored in memory on Linux, and in a temporary directory on other OSes.
+    /// Set to `false` by default. If this is set to `true`, [`cache_dir`] is ignored.
+    pub ephemeral: bool,
 }
 
-#[allow(dead_code)]
 impl Config {
-    pub(crate) fn sled_config(&self, path: PathBuf) -> sled::Config {
-        sled::Config::default().path(path)
-    }
-    pub(crate) fn sled_default_config(&self) -> sled::Config {
-        sled::Config::default().path(&self.path)
+    pub(crate) fn sled_config(&self, path_dir: &str) -> sled::Config {
+        let config = sled::Config::default()
+            .cache_capacity(self.memory_cache_bytes)
+            .mode(sled::Mode::LowSpace);
+        if self.ephemeral {
+            config.temporary(self.ephemeral)
+        } else {
+            let path = self.cache_dir.join(path_dir.to_owned());
+            config.path(path)
+        }
     }
 }
 
 impl Default for Config {
-    fn default() -> Self {
-        Self {
-            path: PathBuf::from("./.zebra-state"),
+    fn default() -> Config {
+        Config {
+            cache_dir: PathBuf::from("./.zebra-state"),
+            memory_cache_bytes: 1024 * 1024 * 1024,
+            ephemeral: false,
         }
     }
 }

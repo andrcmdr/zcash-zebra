@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use zebra_network::Config as NetworkSection;
 
+use zebra_state::Config as StateSection;
+
 /// Configuration for `zebrad`.
 ///
 /// The `zebrad` config is a TOML-encoded version of this structure. The meaning
@@ -24,6 +26,8 @@ pub struct ZebradConfig {
     pub network: NetworkSection,
     /// Metrics configuration
     pub metrics: MetricsSection,
+    /// State configuration
+    pub state: StateSection,
 }
 
 /// Tracing configuration section.

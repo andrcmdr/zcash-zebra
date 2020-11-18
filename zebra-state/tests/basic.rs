@@ -61,9 +61,11 @@ async fn check_transcripts() -> Result<(), Report> {
         let transcript = Transcript::from(transcript_data.iter().cloned());
         transcript.check(service).await?;
 
-        let storage_guard = TempDir::new("")?;
+        let storage_guard = TempDir::new("./.tmp-state")?;
         let service = on_disk::init(Config {
-            path: storage_guard.path().to_owned(),
+            cache_dir: storage_guard.path().to_owned(),
+            memory_cache_bytes: 1024 * 1024 * 1024,
+            ephemeral: false,
         });
         let transcript = Transcript::from(transcript_data.iter().cloned());
         transcript.check(service).await?;

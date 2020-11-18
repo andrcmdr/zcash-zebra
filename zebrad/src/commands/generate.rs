@@ -18,6 +18,7 @@ impl Runnable for GenerateCmd {
             tracing: crate::config::TracingSection::populated(),
             network: Default::default(),
             metrics: Default::default(),
+            state: Default::default(),
         };
         let mut output = r"# Default configuration values for zebrad.
 #

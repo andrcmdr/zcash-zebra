@@ -32,7 +32,7 @@ pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60);
 pub const TIMESTAMP_TRUNCATION_SECONDS: i64 = 30 * 60;
 
 /// The User-Agent string provided by the node.
-pub const USER_AGENT: &str = "🦓Zebra v2.0.0-alpha.0🦓";
+pub const USER_AGENT: &str = "Zebra v2.0.0-alpha.0";
 
 /// The Zcash network protocol version used on mainnet.
 pub const CURRENT_VERSION: Version = Version(170_009);

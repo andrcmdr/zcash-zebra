@@ -56,9 +56,9 @@ impl StartHeadersOnlyCmd {
             }),
             1,
         );
-        let config = app_config().network.clone();
-        let state = zebra_state::on_disk_headersonly::init(zebra_state::Config::default());
-        let (peer_set, _address_book) = zebra_network::init(config, node).await;
+        let config = app_config();
+        let state = zebra_state::on_disk_headersonly::init(config.state.clone());
+        let (peer_set, _address_book) = zebra_network::init(config.network.clone(), node).await;
         let verifier = zebra_consensus::verify::header::init(state.clone());
 
         let mut syncer = sync_headersonly::Syncer::new(peer_set, state, verifier);

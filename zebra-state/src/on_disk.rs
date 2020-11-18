@@ -1,7 +1,7 @@
 //! The primary implementation of the `zebra_state::Service` built upon sled
 use super::{RequestBlock, Response, QueryType};
 use crate::Config;
-use std::path::PathBuf;
+// use std::path::{Path, PathBuf};
 use futures::prelude::*;
 use std::sync::Arc;
 use std::{
@@ -26,8 +26,7 @@ struct SledState {
 
 impl SledState {
     pub(crate) fn new(config: &Config) -> Self {
-        let config = config.sled_config(PathBuf::from("./.zebra-state/blocks"));
-
+        let config = config.sled_config("blocks");
         Self {
             storage: config.open().unwrap(),
         }
