@@ -927,7 +927,7 @@ dependencies = [
 
 [[package]]
 name = "ibclib"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "futures-util",
  "tower",
@@ -2366,15 +2366,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
-name = "velas"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "ibclib",
- "zebra-chain",
-]
-
-[[package]]
 name = "version_check"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2483,6 +2474,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39f0c922f1a334134dc2f7a8b67dc5d25f0735263feec974345ff706bcf20b0d"
 dependencies = [
  "linked-hash-map",
+]
+
+[[package]]
+name = "zcash-zebra-aslib"
+version = "1.0.0"
+dependencies = [
+ "futures-util",
+ "ibclib",
+ "zebra-chain",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 [package]
-name = "velas"
-version = "0.1.0"
+name = "zcash-zebra-aslib"
+version = "1.0.0"
 authors = ["Andrew Bednoff <andrcmdr@commandr.stream>"]
 license = "GNU General Public License v2.0"
 edition = "2018"
