@@ -339,9 +339,9 @@ dependencies = [
 
 [[package]]
 name = "color-eyre"
-version = "0.5.7"
+version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86bc0bb03923141924d5b713a4acd7607c790f3fbc769abe63fe3f38bb268112"
+checksum = "8fb57305b07ffcc1a4d08808f1f2200647c8e3d91a4c83d2810ae20c997274e0"
 dependencies = [
  "backtrace",
  "color-spantrace",
@@ -934,6 +934,12 @@ dependencies = [
  "tracing",
  "zebra-chain",
  "zebra-state",
+]
+
+[[package]]
+name = "ibcrun"
+version = "1.0.0"
+dependencies = [
  "zebrad",
 ]
 
@@ -1912,11 +1918,11 @@ checksum = "fbee7696b84bbf3d89a1c2eccff0850e3047ed46bfcd2e92c29a2d074d57e252"
 
 [[package]]
 name = "socket2"
-version = "0.3.16"
+version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fd8b795c389288baa5f355489c65e71fd48a02104600d15c4cfbc561e9e429d"
+checksum = "2c29947abdee2a218277abeca306f25789c938e500ea5a9d4b12a5a504466902"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "libc",
  "redox_syscall",
  "winapi 0.3.9",
@@ -1984,9 +1990,9 @@ dependencies = [
 
 [[package]]
 name = "termcolor"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb6bfa289a4d7c5766392812c0a1f4c1ba45afa1ad47803c11e1f407d846d75f"
+checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
 dependencies = [
  "winapi-util",
 ]
@@ -2482,7 +2488,10 @@ version = "1.0.0"
 dependencies = [
  "futures-util",
  "ibclib",
+ "ibcrun",
+ "tower",
  "zebra-chain",
+ "zebra-state",
 ]
 
 [[package]]
@@ -2584,6 +2593,7 @@ dependencies = [
  "gumdrop",
  "hex",
  "hyper",
+ "ibclib",
  "metrics",
  "metrics-runtime",
  "rand",
