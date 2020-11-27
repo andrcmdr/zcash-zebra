@@ -1,5 +1,5 @@
 [package]
-name = "ibclib"
+name = "ibcrun"
 version = "1.0.0"
 authors = ["Andrew Bednoff <andrcmdr@commandr.stream>"]
 license = "GNU General Public License v2.0"
@@ -8,8 +8,4 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zebra-chain = { path = "../zebra-chain" }
-zebra-state = { path = "../zebra-state" }
-tracing = "0.1"
-futures-util = "0.3.5"
-tower = "0.3"
+zebrad = { path = "../zebrad" }

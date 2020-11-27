@@ -11,6 +11,7 @@ members = [
         "zebra-test",
         "zebrad",
         "ibclib",
+        "ibcrun",
 ]
 
 [profile.dev]

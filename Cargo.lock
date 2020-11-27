@@ -812,6 +812,12 @@ dependencies = [
  "tracing",
  "zebra-chain",
  "zebra-state",
+]
+
+[[package]]
+name = "ibcrun"
+version = "1.0.0"
+dependencies = [
  "zebrad",
 ]
 
@@ -2510,6 +2516,7 @@ dependencies = [
  "gumdrop",
  "hex",
  "hyper",
+ "ibclib",
  "metrics",
  "metrics-runtime",
  "once_cell",
