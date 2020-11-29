@@ -27,6 +27,10 @@ use zebra_chain::{
     block::BlockHeaderHash,
 //  block::{Block, BlockHeader, BlockHeaderHash},
 };
+use std::path::{
+//  Path,
+    PathBuf,
+};
 
 mod sync_headersonly;
 
@@ -39,9 +43,22 @@ const GENESIS: BlockHeaderHash = BlockHeaderHash([
 /// `start-headers-only` subcommand
 #[derive(Command, Debug, Options)]
 pub struct StartHeadersOnlyCmd {
-    /// Filter strings
-    #[options(free)]
+    /// The filter strings used for tracing events.
+    // #[options(free, help = "The filter strings used for tracing events")]
+    #[options(help = "The filter strings used for tracing events")]
     pub filters: Vec<String>,
+    /// Configuration for the state service.
+    /// The root directory for storing cached data into the state storage.
+    #[options(help = "The root directory for storing cached data into the state storage")]
+    pub cache_dir: Option<PathBuf>,
+    /// The maximum number of bytes to use caching data in memory.
+    #[options(help = "The maximum number of bytes to use caching data in memory")]
+    pub memory_cache_bytes: Option<u64>,
+    /// Whether to use an ephemeral database.
+    /// Ephemeral databases are stored in memory on Linux, and in a temporary directory on other OSes.
+    /// Set to `false` by default. If this is set to `true`, [`cache_dir`] is ignored.
+    #[options(help = "Whether to use an ephemeral database (stored in memory)")]
+    pub ephemeral: bool,
 }
 
 impl StartHeadersOnlyCmd {
@@ -100,6 +117,15 @@ impl config::Override<ZebradConfig> for StartHeadersOnlyCmd {
     fn override_config(&self, mut config: ZebradConfig) -> Result<ZebradConfig, FrameworkError> {
         if !self.filters.is_empty() {
             config.tracing.filter = Some(self.filters.join(","));
+        }
+        if let Some(dir) = self.cache_dir.to_owned() {
+            config.state.cache_dir = dir;
+        }
+        if let Some(mem_size) = self.memory_cache_bytes {
+            config.state.memory_cache_bytes = mem_size;
+        }
+        if self.ephemeral {
+            config.state.ephemeral = self.ephemeral;
         }
 
         Ok(config)
