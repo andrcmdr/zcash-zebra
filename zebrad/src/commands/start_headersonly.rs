@@ -75,7 +75,7 @@ impl StartHeadersOnlyCmd {
         );
         let config = app_config();
         let state = zebra_state::on_disk_headersonly::init(config.state.clone());
-        let _storage = ibclib::prelude::Storage::new(state.clone());
+        let _storage = ibclib::prelude::IBCStorage::new(state.clone());
         let (peer_set, _address_book) = zebra_network::init(config.network.clone(), node).await;
         let verifier = zebra_consensus::verify::header::init(state.clone());
 

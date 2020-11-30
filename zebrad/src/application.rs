@@ -154,7 +154,10 @@ impl ZebradApp {
     }
 
     fn tracing_component(&self, command: &EntryPoint<ZebradCmd>) -> Tracing {
-        use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+        use tracing_subscriber::{
+            layer::SubscriberExt,
+//          util::SubscriberInitExt
+        };
 
         // Construct a tracing subscriber with the supplied filter and enable reloading.
         let builder = tracing_subscriber::FmtSubscriber::builder()
@@ -162,10 +165,17 @@ impl ZebradApp {
             .with_filter_reloading();
         let filter_handle = builder.reload_handle();
 
-        builder
+//      builder
+//          .finish()
+//          .with(tracing_error::ErrorLayer::default())
+//          .init();
+
+        let subscriber = builder
             .finish()
-            .with(tracing_error::ErrorLayer::default())
-            .init();
+            .with(tracing_error::ErrorLayer::default());
+
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("unable to set global subscriber");
 
         filter_handle.into()
     }

@@ -64,7 +64,7 @@ impl From<BlockHeight> for IBCQuery<BlockHeaderHash, BlockHeight> {
     }
 }
 
-impl<S> Storage<S>
+impl<S> IBCStorage<S>
 where
     S: Service<RequestBlockHeader, Response = Response, Error = Error> + Send + Clone + 'static,
     S::Future: Send,
@@ -77,7 +77,7 @@ where
     }
 }
 
-impl<S> IBCRequest<BlockHeaderHash, BlockHeight> for Storage<S>
+impl<S> IBCRequest<BlockHeaderHash, BlockHeight> for IBCStorage<S>
 where
     S: Service<RequestBlockHeader, Response = Response, Error = Error> + Send + Clone + 'static,
     S::Future: Send,

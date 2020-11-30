@@ -9,7 +9,7 @@ use std::{
 type Error = Box<dyn error::Error + Send + Sync + 'static>;
 
 #[derive(Clone, Copy)]
-pub struct Storage<S>
+pub struct IBCStorage<S>
 where
     Self: Send + Sync + 'static,
 {
