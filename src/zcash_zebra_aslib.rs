@@ -41,7 +41,7 @@ pub trait Runnable {
     fn run(self);
 }
 
-impl<S> Runnable for Storage<S>
+impl<S> Runnable for IBCStorage<S>
 where
     S: Service<RequestBlockHeader, Response = Response, Error = Error> + Send + Clone + 'static,
     S::Future: Send,
