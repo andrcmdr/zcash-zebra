@@ -34,7 +34,7 @@ zebra-chain = { path = "../zebra-chain" }
 zebra-network = { path = "../zebra-network" }
 zebra-state = { path = "../zebra-state" }
 ibclib = { path = "../ibclib" }
-tracing-subscriber = { version = "0.2.7", features = ["tracing-log"] }
+tracing-subscriber = { version = "0.2.9", features = ["tracing-log"] }
 tracing-error = "0.1.2"
 color-eyre = "0.5"
 zebra-consensus = { path = "../zebra-consensus/" }
