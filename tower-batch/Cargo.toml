@@ -19,5 +19,5 @@ ed25519-zebra = "1.0"
 rand = "0.7"
 tokio = { version = "0.2", features = ["full"]}
 tracing = "0.1.16"
-color-eyre = "0.5"
+color-eyre = "0.6"
 zebra-test = { path = "../zebra-test/" }
