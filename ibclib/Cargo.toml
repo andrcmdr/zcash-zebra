@@ -11,5 +11,5 @@ edition = "2018"
 zebra-chain = { path = "../zebra-chain" }
 zebra-state = { path = "../zebra-state" }
 tracing = "0.1"
-futures-util = "0.3.5"
+futures-util = "0.3.25"
 tower = "0.3"
